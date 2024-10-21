@@ -62,6 +62,14 @@ if [ -d "${WINEPREFIX_DIR}/drive_c/users/${USER}" ]; then
   mv -n "${WINEPREFIX_DIR}/drive_c/users/${USER}" "${WINEPREFIX_DIR}/drive_c/users/steamuser"
 fi
 
+if [ -L "${WINEPREFIX_DIR}/drive_c/users/steamuser/Application Data/" ]; then
+  rm -rf -- "${WINEPREFIX_DIR}/drive_c/users/steamuser/Application Data/"
+fi
+
+if [ -d "${WINEPREFIX_DIR}/drive_c/users/steamuser/My Documents/" ]; then
+  rm -rf -- "${WINEPREFIX_DIR}/drive_c/users/steamuser/My Documents/"
+fi
+
 if [ -L "${WINEPREFIX_DIR}/drive_c/users/steamuser/Downloads" ]; then
   rm -rf -- "${WINEPREFIX_DIR}/drive_c/users/steamuser/Downloads"
 fi
@@ -71,7 +79,7 @@ if [ -L "${WINEPREFIX_DIR}/drive_c/users/steamuser/AppData/Roaming/Microsoft/Win
 fi
 
 # remplacer les liens symboliques restants par le fichier qu'ils ciblent
-find  -type l -exec bash -c 'target=$(readlink "{}"); rm "{}"; cp -r "$target" "{}"' \;
+find "${WINEPREFIX_DIR}" -type l -exec bash -c 'target=$(readlink "{}"); rm "{}"; cp -r "$target" "{}"' \;
 
 
 
