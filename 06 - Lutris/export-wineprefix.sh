@@ -74,6 +74,10 @@ if [ -L "${WINEPREFIX_DIR}/drive_c/users/steamuser/Downloads" ]; then
   rm -rf -- "${WINEPREFIX_DIR}/drive_c/users/steamuser/Downloads"
 fi
 
+if [ -d "${WINEPREFIX_DIR}/drive_c/ProgramData/Package\ Cache/" ]; then
+  rm -rf -- "${WINEPREFIX_DIR}/drive_c/ProgramData/Package\ Cache/"*
+fi
+
 if [ -L "${WINEPREFIX_DIR}/drive_c/users/steamuser/AppData/Roaming/Microsoft/Windows/Templates" ]; then
   rm -rf -- "${WINEPREFIX_DIR}/drive_c/users/steamuser/AppData/Roaming/Microsoft/Windows/Templates"
 fi
