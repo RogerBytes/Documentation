@@ -1,22 +1,52 @@
 @echo off
 :menu
 cls
+echo.
+echo     ---------------------
+echo     Medieval II Total War
+echo     ---------------------
+echo.
 echo ========================================
-echo           Choisissez un jeu
+echo         Choisissez une campagne
 echo ========================================
-echo 1. Kingdom Hearts HD Deam Drop Distance
-echo 2. Kingdom Hearts 0.2 Birth by Sleep
-echo 3. Kingdom Hearts x Back Cover
-echo 4. Quitter
+echo.
+echo 1. Medieval II Total War
+echo 2. Medieval II Total War - Americas
+echo 3. Medieval II Total War - Britannia
+echo 4. Medieval II Total War - Crusades
+echo 5. Medieval II Total War - Teutonic
+echo 6. Quitter
 echo ========================================
-set /p choice="Entrez votre choix (1-4) : "
+echo.
+set /p choice=Entrez votre choix (1-6) : 
 
-if "%choice%"=="1" start "" "Kingdom Hearts - DDD.lnk"
-if "%choice%"=="2" start "" "Kingdom Hearts - 0.2 Birth by Sleep.lnk"
-if "%choice%"=="3" start "" "Kingdom Hearts HD 2.8 FCP.lnk"
-if "%choice%"=="4" goto :exit
+rem Vérification des choix valides
+if "%choice%"=="1" (
+    start "" "Medieval II Total War.lnk"
+    exit
+)
+if "%choice%"=="2" (
+    start "" "Medieval II Total War - Americas.lnk"
+    exit
+)
+if "%choice%"=="3" (
+    start "" "Medieval II Total War - Britannia.lnk"
+    exit
+)
+if "%choice%"=="4" (
+    start "" "Medieval II Total War - Crusades.lnk"
+    exit
+)
+if "%choice%"=="5" (
+    start "" "Medieval II Total War - Teutonic.lnk"
+    exit
+)
+if "%choice%"=="6" goto :exit
 
-goto menu
+rem Si l'utilisateur n'entre pas une option valide, on le renvoie au menu
+echo Choix invalide. Veuillez entrer un chiffre entre 1 et 6.
+pause
+goto :menu
 
 :exit
 exit
