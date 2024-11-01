@@ -1,0 +1,5 @@
+
+le type choisi est zst
+
+cp: impossible de créer un répertoire ('/home/rogerbytes/Games/ghost-of-tsushima-directors-cut/drive_c/users/steamuser') dans lui-même ('/home/rogerbytes/Games/ghost-of-tsushima-directors-cut/drive_c/users/steamuser/rogerbytes')
+cp: impossible d'évaluer '/home/harry/Games/ghost-of-tsushima/drive_c/users/steamuser': Aucun fichier ou dossier de ce nom
