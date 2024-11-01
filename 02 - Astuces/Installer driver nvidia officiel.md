@@ -55,3 +55,21 @@ GeForce RTX 2080 Ti
 Linux 64-Bit
 
 Français
+
+
+Puis valider en cliquant sur "Trouver"
+
+
+Cliquez sur le bouton "voir" à coté du driver, puis "Télécharger"
+
+
+Une fois le fichier "*.run" télécharger on peut l'installer
+
+
+On le rend executable avec :
+
+chmod +x *.run
+
+et on le lance avec :
+
+sudo ./*.run
