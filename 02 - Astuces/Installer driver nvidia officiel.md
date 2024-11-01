@@ -1,6 +1,6 @@
 # Pilote nvidia
 
-ATTENTION CA PEUT CASSER VOTRE AFFICHAGE
+ATTENTION CA PEUT CASSER VOTRE AFFICHAGE A EVITER
 
 DANS CE CAS IL FAUT ENTRE EN COMMANDE AVEC CTRL+SHIFT+F2
 mettre son nom d'user et son mdp
@@ -13,6 +13,27 @@ sudo update-initramfs -u
 
 puis terminer avec
 sudo reboot
+
+
+Ensuite chercher (550 c'est celui que j'avais sur le site)
+
+sudo nala search nvidia-driver-550
+
+retourne :
+nvidia-driver-550 550.120-0ubuntu0.24.04.1 [Ubuntu/noble restricted]
+└── NVIDIA driver metapackage
+nvidia-driver-550-open 550.120-0ubuntu0.24.04.1 [Ubuntu/noble multiverse]
+└── NVIDIA driver (open kernel) metapackage
+nvidia-driver-550-server 550.127.05-0ubuntu0.24.04.1 [Ubuntu/noble multiverse]
+└── NVIDIA Server Driver metapackage
+nvidia-driver-550-server-open 550.127.05-0ubuntu0.24.04.1 [Ubuntu/noble multiverse]
+└── NVIDIA driver (open kernel) metapackage
+
+sudo nala install -y nvidia-driver-550
+
+après redémarrage verifié que c'ets bien installé avec :
+nvidia-smi
+
 
 
 ## Sur le site
