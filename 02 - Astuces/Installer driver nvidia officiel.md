@@ -1,5 +1,20 @@
 # Pilote nvidia
 
+ATTENTION CA PEUT CASSER VOTRE AFFICHAGE
+
+DANS CE CAS IL FAUT ENTRE EN COMMANDE AVEC CTRL+SHIFT+F2
+mettre son nom d'user et son mdp
+
+et faire
+
+sudo apt purge '^nvidia-.*'
+sudo apt install --reinstall xserver-xorg-core xserver-xorg-video-all
+sudo update-initramfs -u
+
+puis terminer avec
+sudo reboot
+
+
 ## Sur le site
 
 https://www.nvidia.com/fr-fr/drivers/
