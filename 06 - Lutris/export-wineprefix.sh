@@ -59,7 +59,7 @@ if [ -L "${WINEPREFIX_DIR}/drive_c/users/steamuser" ]; then
 fi
 
 if [ -L "${WINEPREFIX_DIR}/drive_c/users/${USER}" ]; then
-  rm -rf -- "${WINEPREFIX_DIR}/drive_c/users/steamuser"
+  rm -rf -- "${WINEPREFIX_DIR}/drive_c/users/${USER}"
 fi
 
 if [ -d "${WINEPREFIX_DIR}/drive_c/users/${USER}" ]; then
@@ -86,9 +86,11 @@ if [ -L "${WINEPREFIX_DIR}/drive_c/users/steamuser/AppData/Roaming/Microsoft/Win
   rm -rf -- "${WINEPREFIX_DIR}/drive_c/users/steamuser/AppData/Roaming/Microsoft/Windows/Templates"
 fi
 
+# Vire les liens symboliques cassés
+find "${WINEPREFIX_DIR}" -type l ! -exec test -e {} \; -delete
+
 # remplacer les liens symboliques restants par le fichier qu'ils ciblent
 find "${WINEPREFIX_DIR}" -type l -exec bash -c 'target=$(readlink "{}"); rm "{}"; cp -r "$target" "{}"' \;
-
 
 
 
