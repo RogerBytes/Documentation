@@ -58,6 +58,10 @@ if [ -L "${WINEPREFIX_DIR}/drive_c/users/steamuser" ]; then
   rm -rf -- "${WINEPREFIX_DIR}/drive_c/users/steamuser"
 fi
 
+if [ -L "${WINEPREFIX_DIR}/drive_c/users/${USER}" ]; then
+  rm -rf -- "${WINEPREFIX_DIR}/drive_c/users/steamuser"
+fi
+
 if [ -d "${WINEPREFIX_DIR}/drive_c/users/${USER}" ]; then
   mv -n "${WINEPREFIX_DIR}/drive_c/users/${USER}" "${WINEPREFIX_DIR}/drive_c/users/steamuser"
 fi
