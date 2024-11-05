@@ -1,6 +1,6 @@
 #!/bin/sh
 
-version="proton-3.7-x86_64"
+version="proton-4.11-x86_64"
 scriptname="${version}.sh"
 
 # Tente d'ouvrir le script dans divers émulateurs de terminal
