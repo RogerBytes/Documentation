@@ -45,6 +45,13 @@ Pour relancer ckb normalement, on utilise
 sudo systemctl start ckb-next-daemon
 ```
 
+
+Pour le lancer en minimisé, vérifiez que c'est 
+
+```bash  
+ckb-next --background  
+```
+
 ## Installer Piper
 
 Pour l'installer Piper, l'on utilise
