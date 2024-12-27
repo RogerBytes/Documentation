@@ -382,8 +382,6 @@ rottexpr - Rise of the Triad: Dark War
 
 vitaQuake II Yamagi Quake II - quake II
 
-Xash3D Half Life
-
 R.E.L.I.V.E Oddworld: Abe's Oddysee, Oddworld: Abe's Exoddus
 
 rawgl another world
