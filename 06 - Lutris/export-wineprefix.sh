@@ -92,7 +92,9 @@ find "${WINEPREFIX_DIR}" -type l ! -exec test -e {} \; -delete
 # remplacer les liens symboliques restants par le fichier qu'ils ciblent
 find "${WINEPREFIX_DIR}" -type l -exec bash -c 'target=$(readlink "{}"); rm "{}"; cp -r "$target" "{}"' \;
 
-
+# supprimer les doublons ".orig" de dll de system32 et syswow64
+rm ${WINEPREFIX_DIR}/drive_c/windows/system32/*.orig
+rm ${WINEPREFIX_DIR}/drive_c/windows/syswow64/*.orig
 
 # Vérifie si les outils nécessaires sont disponibles
 for cmd in tar gzip xz zstd; do
