@@ -2,69 +2,51 @@
 :menu
 cls
 echo.
-echo     ---------------------
-echo     Medieval II Total War
-echo     ---------------------
+echo     ----------
+echo     Elden Ring
+echo     ----------
 echo.
 echo ========================================
 echo         Choisissez une campagne
 echo ========================================
 echo.
-echo 1. Medieval II Total War
-echo 2. Medieval II Total War - Americas
-echo 3. Medieval II Total War - Britannia
-echo 4. Medieval II Total War - Crusades
-echo 5. Medieval II Total War - Teutonic
-echo 6. Stainless Steel
-echo 7. Europa Barbarorum 2
-echo 8. Third Age
-echo 9. Call of Warhammer
+echo 1. Elden Ring
+echo 2. Guide
+echo 3. Extras
+echo 4. Extras Erdtree
 echo 0. Quitter
 echo ========================================
 echo.
 set /p choice=Entrez votre choix (1-9) : 
 
+rem Définir le préfixe Wine
+set WINEPREFIX=/chemin/vers/votre/prefixe
+
 rem Vérification des choix valides
 if "%choice%"=="1" (
-    start "" "Medieval II Total War.lnk"
-    exit
+  cd "C:\Games\ELDEN RING Shadow of the Erdtree\Game\"
+  "eldenring.exe"
+  exit
 )
 if "%choice%"=="2" (
-    start "" "Medieval II Total War - Americas.lnk"
-    exit
+  cd "C:\Games\ELDEN RING Shadow of the Erdtree\AdvGuide\"
+  "ELDEN RING Adventure Guide.exe"
+  exit
 )
 if "%choice%"=="3" (
-    start "" "Medieval II Total War - Britannia.lnk"
-    exit
+  cd "C:\Games\ELDEN RING Shadow of the Erdtree\ArtbookOST\"
+  "ELDEN RING Digital Artbook & Soundtrack.exe"
+  exit
 )
 if "%choice%"=="4" (
-    start "" "Medieval II Total War - Crusades.lnk"
-    exit
-)
-if "%choice%"=="5" (
-    start "" "Medieval II Total War - Teutonic.lnk"
-    exit
-)
-if "%choice%"=="6" (
-    start "" "Stainless Steel.bat"
-    exit
-)
-if "%choice%"=="7" (
-    start "" "Europa Barbarorum 2.bat"
-    exit
-)
-if "%choice%"=="8" (
-    start "" "Third Age.bat"
-    exit
-)
-if "%choice%"=="9" (
-    start "" "Call of Warhammer.bat"
-    exit
+  cd "C:\Games\ELDEN RING Shadow of the Erdtree\ERD_ArtbookOST\"
+  "ELDEN RING Shadow of the Erdtree Digital Artbook & Original Soundtrack.exe"
+  exit
 )
 if "%choice%"=="0" goto :exit
 
 rem Si l'utilisateur n'entre pas une option valide, on le renvoie au menu
-echo Choix invalide. Veuillez entrer un chiffre entre 1 et 9.
+echo Choix invalide. Veuillez entrer un chiffre entre 1 et 4.
 pause
 goto :menu
 
