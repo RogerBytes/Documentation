@@ -7,25 +7,22 @@ if [ "$#" -lt 2 ] || [ "$#" -gt 5 ]; then
 fi
 
 # Variables d'environnement
-LEVEL=3
 OUTPUT_DIR="${HOME}"
 SCRIPT_NAME=$0
 WINEPREFIX_NAME=$1
 ARCHIVE_NAME=$2
-COMPRESSION_TYPE=${3:-gzip}
+COMPRESSION_TYPE=${3:-zst}
+LEVEL=${4:-3}
 GAMES_DIR="${HOME}/Games"
 WINEPREFIX_DIR="${GAMES_DIR}/${WINEPREFIX_NAME}"
-export ZSTD_CLEVEL=$LEVEL
 
-echo "le type choisi est $COMPRESSION_TYPE"
-
-# Déclaration de variables
+# Déclaration des types de compression et des extensions
 declare -A compression_types
 compression_types=(
   [gzip]="tar -cvzf"
   [tar]="tar -cvf"
   [xz]="tar -cvf"
-  [zst]="tar -I zstd -cvf"
+  [zst]="tar -I \"zstd -$LEVEL\" -cvf"
 )
 
 declare -A extensions
@@ -39,7 +36,7 @@ extensions=(
 # Vérifie si le troisième argument est fourni et s'il est correct
 allowed_args=(tar xz gzip zst zpaq)
 if [[ ! " ${allowed_args[@]} " =~ " ${COMPRESSION_TYPE} " ]]; then
-  echo -e "\033[31mErreur : l'argument optionnel doit être 'tar', 'xz', 'zpaq, 'gzip' ou 'zst' s'il est fourni.\033[0m" >&2
+  echo -e "\033[31mErreur : l'argument optionnel doit être 'tar', 'xz', 'zpaq', 'gzip' ou 'zst' s'il est fourni.\033[0m" >&2
   exit 1
 fi
 
@@ -49,53 +46,6 @@ if [ ! -d "$WINEPREFIX_DIR" ]; then
   exit 1
 fi
 
-# Opérations de nettoyage du préfixe
-if [ -d "${WINEPREFIX_DIR}/dosdevices" ]; then
-  rm -rf -- "${WINEPREFIX_DIR}/dosdevices"
-fi
-
-if [ -L "${WINEPREFIX_DIR}/drive_c/users/steamuser" ]; then
-  rm -rf -- "${WINEPREFIX_DIR}/drive_c/users/steamuser"
-fi
-
-if [ -L "${WINEPREFIX_DIR}/drive_c/users/${USER}" ]; then
-  rm -rf -- "${WINEPREFIX_DIR}/drive_c/users/${USER}"
-fi
-
-if [ -d "${WINEPREFIX_DIR}/drive_c/users/${USER}" ]; then
-  mv -n "${WINEPREFIX_DIR}/drive_c/users/${USER}" "${WINEPREFIX_DIR}/drive_c/users/steamuser"
-fi
-
-if [ -L "${WINEPREFIX_DIR}/drive_c/users/steamuser/Application Data/" ]; then
-  rm -rf -- "${WINEPREFIX_DIR}/drive_c/users/steamuser/Application Data/"
-fi
-
-if [ -d "${WINEPREFIX_DIR}/drive_c/users/steamuser/My Documents/" ]; then
-  rm -rf -- "${WINEPREFIX_DIR}/drive_c/users/steamuser/My Documents/"
-fi
-
-if [ -L "${WINEPREFIX_DIR}/drive_c/users/steamuser/Downloads" ]; then
-  rm -rf -- "${WINEPREFIX_DIR}/drive_c/users/steamuser/Downloads"
-fi
-
-if [ -d "${WINEPREFIX_DIR}/drive_c/ProgramData/Package\ Cache/" ]; then
-  rm -rf -- "${WINEPREFIX_DIR}/drive_c/ProgramData/Package\ Cache/"*
-fi
-
-if [ -L "${WINEPREFIX_DIR}/drive_c/users/steamuser/AppData/Roaming/Microsoft/Windows/Templates" ]; then
-  rm -rf -- "${WINEPREFIX_DIR}/drive_c/users/steamuser/AppData/Roaming/Microsoft/Windows/Templates"
-fi
-
-# Vire les liens symboliques cassés
-find "${WINEPREFIX_DIR}" -type l ! -exec test -e {} \; -delete
-
-# remplacer les liens symboliques restants par le fichier qu'ils ciblent
-find "${WINEPREFIX_DIR}" -type l -exec bash -c 'target=$(readlink "{}"); rm "{}"; cp -r "$target" "{}"' \;
-
-# supprimer les doublons ".orig" de dll de system32 et syswow64
-rm ${WINEPREFIX_DIR}/drive_c/windows/system32/*.orig
-rm ${WINEPREFIX_DIR}/drive_c/windows/syswow64/*.orig
-
 # Vérifie si les outils nécessaires sont disponibles
 for cmd in tar gzip xz zstd; do
   if ! command -v $cmd &> /dev/null; then
@@ -104,14 +54,30 @@ for cmd in tar gzip xz zstd; do
   fi
 done
 
-# Lance la création de l'archive
+# Ajuste le niveau de compression pour "xz" et "zst"
+if [ "$LEVEL" -eq 19 ] && [ "$COMPRESSION_TYPE" == "xz" ]; then
+  LEVEL=3
+fi
+
+if [ "$LEVEL" -gt 19 ] && [ "$COMPRESSION_TYPE" == "zst" ]; then
+  LEVEL="-ultra -$LEVEL"  # Ajoute --ultra à la variable LEVEL
+  compression_types[zst]="tar -I \"zstd -$LEVEL\" -cvf"
+fi
+# Crée la commande d'archive
 command=${compression_types[$COMPRESSION_TYPE]}
 extension=${extensions[$COMPRESSION_TYPE]}
+
 set -e
+
+# Commande spécifique pour "xz" et "zst"
 if [ "$COMPRESSION_TYPE" == "xz" ]; then
-  $command "${OUTPUT_DIR}/${ARCHIVE_NAME}.${extension}" --use-compress-program='xz -${LEVEL}' -C ${GAMES_DIR} "${WINEPREFIX_NAME}"
+  final_command="$command \"${OUTPUT_DIR}/${ARCHIVE_NAME}.${extension}\" --use-compress-program=\"xz -${LEVEL}\" -C \"${GAMES_DIR}\" \"${WINEPREFIX_NAME}\""
 else
-  $command "${OUTPUT_DIR}/${ARCHIVE_NAME}.${extension}" -C ${GAMES_DIR} "${WINEPREFIX_NAME}"
+  final_command="$command \"${OUTPUT_DIR}/${ARCHIVE_NAME}.${extension}\" -C \"${GAMES_DIR}\" \"${WINEPREFIX_NAME}\""
 fi
+
+# Exécuter la commande dans un nouveau shell
+echo -e "\033[32m$final_command\033[0m"
+bash -c "$final_command"
 
 exit 0
