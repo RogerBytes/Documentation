@@ -15,24 +15,55 @@ sudo nala install -y kodi-peripheral-joystick kodi-pvr-iptvsimple kodi-audioenco
 Dans "System/Interface/Regional/language choisissez "French"
 Ensuite au même endroit réglez "Disposition du clavier " en "French-Azerty" et "Format régional prédéfini" sur "France"  
 ensuite la région et mettre le niveau de paramètre (le truc avec une icône dentée ronde en bas à gauche) sur Expert  
-Ensuite allez dans "Habillage/ En obtenir plus" pour y ajouter/choisir `Unity`
+Ensuite allez dans "Habillage/ En obtenir plus" pour y ajouter/choisir `Aeon Nox: Silvo`
 Ensuite allez dans "Système/Paramètres de média/Général/"
 cocher "Afficher les fichiers et dossiers cachés"
+
+### Ajout manuel de repo fichers zip local
+
+```bash  
+wget https://github.com/fivebanger/kodi_addons/raw/refs/heads/master/repository.fivebanger.zip  
+```
+
+Si sur une machine distante (genre box tv, je recommande d'utiliser LibreElec) envoyez le fichier par smb.  
+
 
 ### Ajout manuel de repo fichers zip
 
 Ensuite allez dans "Système/Paramètres du système/Extensions"
 cocher "Sources inconnues" et en-dessous "mettre à jour les extensions officielles depuis" sur "N'importe quel dépôt"
 
-Ensuite allez dans "Système/Habillage/Général/choose colour"
-Cochez "Dark Theme" et "Blue"
-
-Ensuite allez dans "Système/Habillage/Arrière-plan/"
+Si vous voulez changez le fond d'écran, c'est dans 
+```bash  
+~/.kodi/addons/skin.aeon.nox.silvo/extras/backgrounds
+```
+ 
+Ensuite allez dans "Système/Paramètres de l'habillage/Général/Choix de l'arrière-plan par défaut"
 Cochez "Activer l'arrière plan personnalisé" et dans "Chemin de l'arrière plan/single image" mettez  
 Stockage externe/Pictures/Ipreda_christmas_tree.jpg
 
-Ensuite allez dans "Système/Habillage/Extension/"
-Cochez toutes les options.
+
+Ensuite allez dans "Système/Paramètres de l'habillage/Fenêtre d'acceuil/"
+Désactiver "Afficher le nom de l'arrière-plan"
+Cocher "Masquer les éléments du menu principal en pressant la touche retour"
+
+Ensuite allez dans "Système/Paramètres de l'habillage/Personnalisation/TV en direct"
+Activer "Masquer les informations de cryptage"
+Activer "Masquer les informations du tuner"
+Activer "Masquer la puissance du signal"
+Activer "Masquer les enregistrements"
+Activer "Masquer la recherche"
+
+Ensuite allez dans "Système/Paramètres de l'habillage/Général"
+Cocher "Activer le défilement automatique de l'intrigue et des critiques"
+
+Ensuite allez dans "Système/Paramètres de l'habillage/Avancé/Indicateur du statut vu"
+Décocher "Non vu"
+
+Ensuite allez dans "Système/Paramètres de l'habillage/Menu principal/Style de navigation du meni principal d'Aeon Nox"
+Choisir "Fixé"
+
+
 
 Ajouter depuis "Gestion des fichiers" (sous menu de "Système" :
 "Ajouter une source" puis ajouter :
@@ -43,50 +74,55 @@ Ajouter depuis "Gestion des fichiers" (sous menu de "Système" :
 - Zip Repo Dexe - repo of all repositories
   <https://dexe.win/kodi>
 
-- Zip Repo Gtking - indispensable pour installer Duff You
-  <https://gtkingbuild.github.io>
-
 - Zip Repo Vstream - Streaming FR
   <https://kodi-vstream.github.io/repo/>
+
+### 
 
 ## Ajout de repo natifs depuis des repo fichers zip
 
 Dans "Système/Extensions/Installer d'un fichier Zip"
 
-- dans "Zip Repo Catchup" installez :
+- dans "Zip Repo Catchup/Beta_channel" installez :
   Beta_Channel/repository.catchuptvandmore.beta-0.0.6.zip
 - dans "Zip Repo Dexe" installez :
   repository/repository.roooar-1.0.1.zip
-- dans "Zip Repo Gtking" installez :
-  repository/repository.GTKing-Phoenix-Nexus-20.1.2.zip
 - dans "Zip Repo Vstream" installez :
-  script.module.dnspython-1.12.1.zip
-  et
-  repository.vstream-0.0.6.zip
+  script.module.dnspython-1.12.1.zip 
+  et "repository.vstream-0.0.6.zip"
+- dans "dossier personnel/ (dans backup ou le dossier où vous l'avez mis)" installez :  
+  repository.fivebanger.zip 
 
 ## Installer des repo natifs depuis des repo natifs
 
-Ensuite dans "Système/Extensions/Installer d'un dépôt/`Repo of all repositories`, installez :
+Ensuite dans "Système/Extensions/Installer d'un dépôt/`dEXE's Addons Repository`/Dépôts d'extensions", installez : "Repo of all Repositories"
+
+Ensuite dans "Système/Extensions/Installer d'un dépôt/`Repo of all repositories`Dépôts d'extensions", installez :
 
 - Dépôts d'extensions/JewRepo Repository
 - Dépôts d'extensions/SlyGuy Repository
-- Dépôts d'extensions/Zach Morris Add-ons
 
 ## Installer extensions depuis des repo natifs
 
 Ensuite dans "Système/Extensions/Installer d'un dépôt/
 
-- Repo GTKing MATRIX/Extensions vidéos  
-  et installez "Duff You" (Youtube)
-
+- dEXE's Addons Repository/  
+Extensions jeux/Fournisseurs de jeux/Internet Archive Game Launcher  
+Extensions jeux/Fournisseurs de jeux/Moonlight  
+Extensions jeux/jeux autonomes/Rom Collection Browser  
+Extensions programme/Retro BIOS Tool  
+Services/Language Preference Manager  
+Services/SponsorBlock
+ 
 - JewRepo/Extensions vidéos  
   et installez "Scrubs 2" (sreaming ultime mais anglophone)
 - Catch-up TV & More's Release repository/Extensions vidéos  
   et installez "Catch-up TV & More" (pour la tnt fr)
+- Fivebanger's KODI ADD-ons/Extensions musique  
+  et installez "Radiobrowser"
 - Kodi Add-on repository/  
   Apparence/Économiseurs d'écran/Aerial  
   Apparence/Visualisation/Spectrum  
-  Extensions Musique/Radio (web radios du monde entier)  
   Extensions Programmes/IPTV Manager (requis pour les chaines tnt catchup)  
   Extensions Vidéos/france.tv (pour la VOD)  
   Menus contextuels/Extras - permet de voir les bonus rangés dans un dossier "Extras" à côté du film  
@@ -99,9 +135,17 @@ Ensuite dans "Système/Extensions/Installer d'un dépôt/
   et dans Extensions Vidéos/Pluto Tv
 - Vstream repository/Extensions vidéos  
   et installez "vStream"
-- Zach Morris Add-ons  
-  Extensions Jeux/Fournisseurs de jeux/Internet Archive Game Launcher
-  Extensions Programmes/Retro BIOS Tool
+
+Télécharger la dernière version sur   
+https://github.com/anxdpanic/plugin.video.youtube/releases  
+
+Prendre la version "unofficial" :  
+plugin.video.youtube-x.x.x+beta.x.unofficial.1.zip
+
+Dans "Système/Extensions/Installer d'un fichier Zip"  
+Choisissez "plugin.video.youtube-x.x.x+beta.x.unofficial.1.zip"
+
+Extensions Vidéos/Youtube  a faire
 
 ## Réglages d'extensions
 
@@ -150,14 +194,13 @@ Et il faut copier retroarch.cfg dans le dossier download.
 
 ### Extensions Musique
 
-- Radio : Configurer Langue : Français et ensuite revenez sur radio et choisissez Utiliser
+- Radiobrowser : Region : Fr et désactiver "Use fanart background" puis "OK" et "Ouvrir"
 
 ### Extensions Programmes
 
-- IPTV Merge : Configurer :
-  1. Général : Setup IPTV Simple Client
-  2. Lecture : Qualité de la vidéo : Best
-  3. Ouvrir IPTV Merge et dans : EPGs -> "Add EPG" et choisir "Add On"
+- IPTV Merge : ouvrir/Setup IPTV Simple Client : faire le tour (ajouter epg ou program en choisissant add et addon puis mettre catchup puis refaire avec pluto tv)
+
+- Language Preference Manager :  et mettre en fr
 
 ### Pour Batocera et Debian uniquement
 
@@ -171,11 +214,13 @@ Configurer, puis :
 
 - Qualité et contenu > Qualité vidéo : Maximale
 
-- Comptes : Les mdp/comptes pour catchup tv
+- Comptes : Les mdp/comptes pour catchup tv  
+- ~/.kodi/userdata/addon_data/plugin.video.catchuptvandmore  
+- et ouvrez "settings.xml" ligne 32 à 39
 
-```json
-    <setting id="mytf1.login">magalie905669@4vzcg9.yarien.eu</setting>
-    <setting id="mytf1.password">Tru23IuKjebnsaK0$</setting>
+```xml
+    <setting id="tf1plus.login">magalie905669@4vzcg9.yarien.eu</setting>
+    <setting id="tf1plus.password">Tru23IuKjebnsaK0$</setting>
     <setting id="6play.login">magalie905669@4vzcg9.yarien.eu</setting>
     <setting id="6play.password">Tru23IuKjebnsaK0$</setting>
     <setting id="abweb.login">magalie905669@4vzcg9.yarien.eu</setting>
@@ -184,9 +229,6 @@ Configurer, puis :
     <setting id="rmcbfmplay.password">Tru23IuKjebnsaK0$</setting>
 ```
 
-Pour info (si vous voulez changer les info manuellement dans le xml) Les mdp et login sont dans
-`~/.kodi/userdata/addon_data/plugin.video.catchuptvandmore/settings.xml`
-ligne 32 à 39
 
 - Intégration TV > Sélectionner les chaînes TV à afficher
 
@@ -239,12 +281,10 @@ Listes des catégories :
 - TV
 - Stream
 - Youtube
-- Vidéos
+- Films
+- Séries Tv
 - Radios
-- Images
-- Musique
 - Jeux
-- Lire le disque
 - Système
 
 ### TV
@@ -252,13 +292,14 @@ Listes des catégories :
 Sous Menus :
 
 - Guide TV - par défaut
-- VOD France TV
+- VOD France TV  
+- VOD TNT
 - Sport en direct - vStream section sport
 
 ### Stream
 
-vstream - me contenu-favori
-
+vstream - mes contenus-favori/Série
+sous menu mes contenus-favori/films
 sous menu rechercher (de vstream)
 sous menu scrubs netflic
 
@@ -270,12 +311,25 @@ ajuter extension youtube
 
 changer pour mettre l'extension radio > mes radios
 
-sous menu, rechercher de l'application radio
+sous menu, rechercher de l'application radio une rechercher par station et une recherche par genre
 
 ### Jeux
 
 Ajouter extension jeu iagl
 ajouter sous menu application androis (il faut passer par favori acceder)
+
+### Système  
+
+Sous menus :  
+alimentation
+Lire le disque  
+Ejecter le disque
+Gestion des fichiers  
+
+
+## Régler les vue des menu  
+
+Système/Paramètres d'habillage/SilVO Extras/Choisir le style du boitier utilisé dans l
 
 ## Réglages de fin
 
@@ -285,4 +339,4 @@ Dans `Système/Lecteur/Vidéos` désactiver :
 - Autoriser l'accelleration matérielle - MediaCodec (Surface)
 - Autoriser l'accelleration matérielle - MediaCodec
 
-Voilà il n'y a plus de réglages à faire.
+Le truc de telecommande.intelligente, c'est "CEC", sur ma tv c'est "anynet+ (hdmi-cec)"
