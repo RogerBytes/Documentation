@@ -17,7 +17,8 @@ echo 4. Extras Erdtree
 echo 0. Quitter
 echo ========================================
 echo.
-set /p choice=Entrez votre choix (1-9) : 
+echo Entrez votre choix (1-9) :
+set /p choice=
 
 rem Définir le préfixe Wine
 set WINEPREFIX=/chemin/vers/votre/prefixe
