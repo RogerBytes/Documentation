@@ -122,6 +122,10 @@ if [ -d "${WINEPREFIX_DIR}/drive_c/users/steamuser/Temp" ]; then
   rm -rf -- "${WINEPREFIX_DIR}/drive_c/users/steamuser/Temp"*
 fi
 
+if [ ! -d "${WINEPREFIX_DIR}/drive_c/users/steamuser/Temp" ]; then
+  mkdir -p "${WINEPREFIX_DIR}/drive_c/users/steamuser/Temp"
+fi
+
 if [ -L "${WINEPREFIX_DIR}/drive_c/users/steamuser/AppData/Roaming/Microsoft/Windows/Templates" ]; then
   rm -rf -- "${WINEPREFIX_DIR}/drive_c/users/steamuser/AppData/Roaming/Microsoft/Windows/Templates"
 fi
