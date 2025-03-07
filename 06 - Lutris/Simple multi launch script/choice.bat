@@ -1,55 +1,59 @@
 @echo off
+setlocal enabledelayedexpansion
+
+:: Vérifier si le script a été relancé en mode minimisé
+if "%1"=="_min" (
+  set choice=%2
+  goto :launch_game
+)
+
+:: Menu principal
 :menu
 cls
 echo.
-echo     ----------
-echo     Elden Ring
-echo     ----------
+echo     -----------------
+echo     Final Fantasy VII
+echo     -----------------
 echo.
 echo ========================================
-echo         Choisissez une campagne
+echo         Choisissez une option
 echo ========================================
 echo.
-echo 1. Elden Ring
-echo 2. Guide
-echo 3. Extras
-echo 4. Extras Erdtree
-echo 0. Quitter
+echo  1. Final Fantasy VII DX (remaster fan made)
+echo  2. Final Fantasy VII Vanilla
+echo  3. Final Fantasy VII Hardmode (Mexico) DX
+echo  0. Quitter
 echo ========================================
 echo.
-echo Entrez votre choix (1-9) :
+echo Entrez votre choix (1-3) :
 set /p choice=
 
-rem Définir le préfixe Wine
-set WINEPREFIX=/chemin/vers/votre/prefixe
+:: Vérifier si le choix est valide (0-3)
+echo %choice% | findstr /r "^[0-3]\+$" >nul
+if errorlevel 1 if %choice% LSS 0 if %choice% GTR 15 (
+    echo Choix invalide. Veuillez entrer un nombre entre 0 et 3.
+    pause
+    goto :menu
+)
 
-rem Vérification des choix valides
+:: Relancer le script en mode minimisé avec le choix sélectionné
+start /min "" cmd /c "%~f0" _min %choice%
+exit
+
+:: Partie du script exécutée après minimisation
+:launch_game
+
 if "%choice%"=="1" (
-  cd "C:\Games\ELDEN RING Shadow of the Erdtree\Game\"
-  "eldenring.exe"
-  exit
+  cd "C:\Games\Final Fantasy VII DX\7th Heaven\"
+  "7th Heaven.exe" /MINI /PROFILE:"Final Fantasy VII DX" /LAUNCH /QUIT
 )
 if "%choice%"=="2" (
-  cd "C:\Games\ELDEN RING Shadow of the Erdtree\AdvGuide\"
-  "ELDEN RING Adventure Guide.exe"
-  exit
+  cd "C:\Games\Final Fantasy VII DX\7th Heaven\"
+  "7th Heaven.exe" /MINI /PROFILE:"Final Fantasy VII Vanilla" /LAUNCH /QUIT
 )
 if "%choice%"=="3" (
-  cd "C:\Games\ELDEN RING Shadow of the Erdtree\ArtbookOST\"
-  "ELDEN RING Digital Artbook & Soundtrack.exe"
-  exit
+  cd "C:\Games\Final Fantasy VII DX\7th Heaven\"
+  "7th Heaven.exe"
 )
-if "%choice%"=="4" (
-  cd "C:\Games\ELDEN RING Shadow of the Erdtree\ERD_ArtbookOST\"
-  "ELDEN RING Shadow of the Erdtree Digital Artbook & Original Soundtrack.exe"
-  exit
-)
-if "%choice%"=="0" goto :exit
 
-rem Si l'utilisateur n'entre pas une option valide, on le renvoie au menu
-echo Choix invalide. Veuillez entrer un chiffre entre 1 et 4.
-pause
-goto :menu
-
-:exit
 exit
