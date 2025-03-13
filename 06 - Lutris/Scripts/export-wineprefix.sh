@@ -122,7 +122,7 @@ if [ -d "${WINEPREFIX_DIR}/drive_c/users/steamuser/Temp" ]; then
   rm -rf -- "${WINEPREFIX_DIR}/drive_c/users/steamuser/Temp"*
 fi
 
-if [ ! -d "${WINEPREFIX_DIR}/drive_c/users/steamuser/Temp" ]; then
+if [ -d "${WINEPREFIX_DIR}/drive_c" ] && [ ! -d "${WINEPREFIX_DIR}/drive_c/users/steamuser/Temp" ]; then
   mkdir -p "${WINEPREFIX_DIR}/drive_c/users/steamuser/Temp"
 fi
 
@@ -131,10 +131,10 @@ if [ -L "${WINEPREFIX_DIR}/drive_c/users/steamuser/AppData/Roaming/Microsoft/Win
 fi
 
 # Vire les liens symboliques cassés
-find "${WINEPREFIX_DIR}" -type l ! -exec test -e {} \; -delete
+find "${WINEPREFIX_DIR}/drive_c" -type l ! -exec test -e {} \; -delete
 
 # remplacer les liens symboliques restants par le fichier qu'ils ciblent
-find "${WINEPREFIX_DIR}" -type l -exec bash -c 'target=$(readlink "{}"); rm "{}"; cp -r "$target" "{}"' \;
+find "${WINEPREFIX_DIR}/drive_c" -type l -exec bash -c 'target=$(readlink "{}"); rm "{}"; cp -r "$target" "{}"' \;
 
 # Supprimer les doublons ".orig" de dll de system32
 find "${WINEPREFIX_DIR}/drive_c/windows/system32" -type f -name '*.orig' -delete
