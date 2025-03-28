@@ -142,6 +142,23 @@ find "${WINEPREFIX_DIR}/drive_c/windows/system32" -type f -name '*.orig' -delete
 # Supprimer les doublons ".orig" de dll de syswow64
 find "${WINEPREFIX_DIR}/drive_c/windows/syswow64" -type f -name '*.orig' -delete
 
+# Remplacer chaque occurrence du nom d'utilisateur dans system.reg à la racine du préfixe par "anonuser"
+if [ -f "${WINEPREFIX_DIR}/system.reg" ]; then
+  sed -i "s|$USER|anonuser|g" "${WINEPREFIX_DIR}/system.reg"
+  echo -e "\033[32mLe nom d'utilisateur a été remplacé par 'anonuser' dans system.reg.\033[0m"
+fi
+
+# Remplacer chaque occurrence du nom d'utilisateur dans user.reg à la racine du préfixe par "anonuser"
+if [ -f "${WINEPREFIX_DIR}/user.reg" ]; then
+  sed -i "s|$USER|anonuser|g" "${WINEPREFIX_DIR}/user.reg"
+  echo -e "\033[32mLe nom d'utilisateur a été remplacé par 'anonuser' dans user.reg.\033[0m"
+fi
+
+# Remplacer chaque occurrence du nom d'utilisateur dans userdef.reg à la racine du préfixe par "anonuser"
+if [ -f "${WINEPREFIX_DIR}/userdef.reg" ]; then
+  sed -i "s|$USER|anonuser|g" "${WINEPREFIX_DIR}/userdef.reg"
+  echo -e "\033[32mLe nom d'utilisateur a été remplacé par 'anonuser' dans userdef.reg.\033[0m"
+fi
 
 # Vérifie si les outils nécessaires sont disponibles
 for cmd in tar gzip xz zstd; do
