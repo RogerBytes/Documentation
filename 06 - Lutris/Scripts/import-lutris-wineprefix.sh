@@ -10,8 +10,6 @@ lutris_flatpak_cmd="flatpak run net.lutris.Lutris"
 lutris_package_cmd="lutris"
 games_dir="$HOME/Games"
 default_runner="wine-ge-8-26-x86_64"
-kill_package_lutris="pkill -f lutris"
-kill_flatpak_lutris="flatpak kill lutris"
 
 declare -A runners_map
 declare -A names_map
@@ -38,19 +36,16 @@ case "$version" in
     lutris_option_file="$lutris_flatpak_option_file"
     lutris_cmd="$lutris_flatpak_cmd"
     lutris_config_dir="$lutris_flatpak_config_dir"
-    kill_lutris="$kill_flatpak_lutris"
     ;;
   package)
     lutris_runner_dir="$lutris_package_runner_dir"
     lutris_option_file="$lutris_package_option_file"
     lutris_cmd="$lutris_package_cmd"
     lutris_config_dir="$lutris_package_config_dir"
-    kill_lutris="$kill_package_lutris"
     ;;
 esac
 
 if [ -f "$lutris_option_file" ]; then
-  echo "Fichier de configuration trouvé."
   extracted_path=$(awk -F': ' '/^\s*game_path:/ {print $2}' "$lutris_option_file")
   if [ -n "$extracted_path" ]; then
     games_dir="$extracted_path"
@@ -65,7 +60,7 @@ fi
 shopt -s nullglob
 tzst_files=( ./*.tzst )
 if [ ${#tzst_files[@]} -eq 0 ]; then
-  echo "Aucun fichier .tzst trouvé."
+  echo "Aucun fichier de préfixe au format .tzst trouvé."
   exit 1
 fi
 
@@ -130,52 +125,52 @@ for i in "${!names_map[@]}"; do
   gamepad=false
   preload_script=false
   prefix_dir="$games_dir/$slug"
-  echo "verif du YAML DE MERDE"
-  echo "$yml_file"
   # extraction
   tar -I zstd -xvf "./$filename" -C "$games_dir"
   if [ $? -ne 0 ]; then
     echo "Erreur lors de l'extraction de $filename."
     exit 1
   fi
-  if [ -d "$games_dir/$slug" ]; then
-    echo "Dossier extrait : $slug"
-  else
-    echo "Erreur : Impossible de déterminer le dossier extrait."
-    exit 1
+
+  # Remplacer "anonuser" par le nom d'utilisateur dans system.reg
+  if [ -f "${prefix_dir}/system.reg" ]; then
+    sed -i 's|anonuser|'$USER'|g' "${prefix_dir}/system.reg"
+    echo -e "\033[32mLe nom d'utilisateur a été remplacé par '$USER' dans system.reg.\033[0m"
   fi
+
+  # Remplacer "anonuser" par le nom d'utilisateur dans user.reg
+  if [ -f "${prefix_dir}/user.reg" ]; then
+    sed -i 's|anonuser|'$USER'|g' "${prefix_dir}/user.reg"
+    echo -e "\033[32mLe nom d'utilisateur a été remplacé par '$USER' dans user.reg.\033[0m"
+  fi
+
+  # Remplacer "anonuser" par le nom d'utilisateur dans userdef.reg
+  if [ -f "${prefix_dir}/userdef.reg" ]; then
+    sed -i 's|anonuser|'$USER'|g' "${prefix_dir}/userdef.reg"
+    echo -e "\033[32mLe nom d'utilisateur a été remplacé par '$USER' dans userdef.reg.\033[0m"
+  fi
+
 
   gamefolder=$(basename "$prefix_dir/drive_c/Games/"*/)
 
   # Vérification du dossier 'scripts'
   if [ -d "$games_dir/$slug/scripts" ]; then
-    echo "Le dossier 'scripts' existe."
-
     # Vérification du fichier .amgp dans le dossier scripts
     gamepad_file=$(find "$games_dir/$slug/scripts" -type f -name "*.amgp" -print -quit)
-
     # Vérification du fichier start.sh dans le dossier scripts
     start_file=$(find "$games_dir/$slug/scripts" -type f -name "start.sh" -print -quit)
 
     if [ -n "$gamepad_file" ]; then
-      echo "Fichier .amgp trouvé : $gamepad_file"
       gamepad=true
-    else
-      echo "Aucun fichier .amgp trouvé dans le dossier 'scripts'."
     fi
-
     if [ -n "$start_file" ]; then
       echo "Fichier start.sh trouvé : $start_file"
       preload_script=true
-    else
-      echo "Aucun fichier start.sh trouvé dans le dossier 'scripts'."
     fi
-
-  else
-    echo "Le dossier 'scripts' n'existe pas dans $games_dir/$slug."
   fi
 
-  echo "CACA1"
+
+  # Création du fichier yml pour lutris
   cat > "$yml_file" <<EOL
 name: "$name"
 game_slug: "$slug"
@@ -188,81 +183,61 @@ script:
   game:
     arch: win64
     exe: $prefix_dir/drive_c/Games/$gamefolder/Launch.bat
-    working_dir: $prefix_dir/drive_c/Games/$gamefolder
+    working_dir: $prefix_dir
     prefix: $prefix_dir
 
   wine:
     version: $runner
 EOL
-  echo "CACA2"
 
   # Lancer Lutris en tâche de fond en important le fichier d'installation
   $lutris_cmd -i "$yml_file" &
-  lutris_pid=$!  # Récupérer l'ID du processus Lutris
-
-  echo "En attente de la création d'un fichier dans $lutris_config_dir..."
+  lutris_pid=$!  # Récupérer l'ID du processus Lutris direct après son démarrage
 
   # Récupérer l'état initial du répertoire (avant création de fichiers)
   initial_files=$(ls "$lutris_config_dir")
 
   # Surveiller le répertoire sans `inotifywait`
-  while true; do
-    # Vérifier les nouveaux fichiers créés
+  initial_files=$(ls "$lutris_config_dir")
+  new_files=""
+
+  while [ -z "$new_files" ]; do
     current_files=$(ls "$lutris_config_dir")
     new_files=$(comm -13 <(echo "$initial_files") <(echo "$current_files"))
-
-    # Si un nouveau fichier a été créé
-    if [ -n "$new_files" ]; then
-      config_file=$(echo "$new_files" | head -n 1)
-      echo "Nouveau fichier détecté : $config_file"
-      $kill_lutris
-      break
-    fi
     sleep 1
   done
 
-  # Attendre que le processus Lutris se termine
+  # Détecter l'ajout d'un fichier de réglage de jeu lutris pour fermer le processus de lutris
+  config_file=$(echo "$new_files" | head -n 1)
+  kill $lutris_pid
+
+  # Afficher le processus actif
   while kill -0 "$lutris_pid" > /dev/null 2>&1; do
-    echo "Lutris est encore en cours..."
+    echo "Le processus de lutris est en cours..."
     sleep 1
   done
-  echo "Lutris a terminé"
 
-
-# Les derniers réglages a faire, je dois tout corriger pour les indentations et pour que ça utilise $config_file au slieu de $yml_file
-
-if [ -f "$lutris_config_dir/$config_file" ]; then
-  echo "Le fichier existe."
-else
-  echo "Le fichier n'existe pas."
-fi
-
-
-# Précise la version du runner dans les réglages
+  # Régler la version du runner wine/proton
   sed -i "s|^  version: .*|  version: $runner|" "$lutris_config_dir/$config_file"
 
-# Ajouter la section system
+  # Ajouter la section system
   if [ "$preload_script" = true ] || [ "$gamepad" = true ]; then
     sed -i 's/^system: \{\}/system:/g' "$lutris_config_dir/$config_file"
   fi
 
-
-#  echo "CACA3"
-#  # Ajouter les configurations spécifiques
+  # Ajouter des configurations au démmarage et à la fermeture
   if [ "$preload_script" = true ]; then
     sed -i '/^system:/a\  prelaunch_command: $prefix_dir/scripts/start.sh' "$lutris_config_dir/$config_file"
     sed -i '/^system:/a\  prelaunch_command: $prefix_dir/scripts/stop.sh' "$lutris_config_dir/$config_file"
     sed -i "/^system:/a\  locale: ''" "$lutris_config_dir/$config_file"
   fi
 
-
-    # Ajouter la configuration du gamepad
+  # Ajouter la configuration du gamepad
   if [ "$gamepad" = true ]; then
     sed -i "/^system:/a\  antimicro_config: $prefix_dir/scripts/$gamepad_file" "$lutris_config_dir/$config_file"
   fi
-  echo "$yml_file"
 
-  rm $yml_file
+  rm "$yml_file"
 done
 
-echo "Fin du script"
+echo "Importation accomplie"
