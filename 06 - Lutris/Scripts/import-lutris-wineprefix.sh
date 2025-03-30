@@ -16,7 +16,10 @@
 # lutris-fshack-7.2-x86_64 -> Runner fshack, requis pour certains vieux jeux
 #
 # Normalement avec ceux-là vous devriez pouvoir tout faire tourner
-
+# Si le prefixe requis n'est pas installé le script le télécharera lors de l'import sinon vous devez mettre l'archive tzst du runner dans ./resources/ (dans le même repertoire que le script d'import)
+#
+# L'utilisation du script d'export se fait via des commandes/arguments, elles sont décrites dans la doc du programme
+# Pour l'utilisation du script d'import il suffit de mettre le script dans le dossier où se trouvent le prefixe du jeu au format tzst, et de le lancer, s'il y a plusieurs prefixes de jeux dans le dossier, le script d'import les importera les uns à la suite des autres.
 
 
 lutris_flatpak_runner_dir="$HOME/.var/app/net.lutris.Lutris/data/lutris/runners/wine"
