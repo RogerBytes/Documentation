@@ -53,7 +53,8 @@ LEVEL=${4:-3}
 GAMES_DIR="${HOME}/Games"
 WINEPREFIX_DIR="${GAMES_DIR}/${WINEPREFIX_NAME}"
 GAME_DIR=$(basename "$WINEPREFIX_DIR/drive_c/Games"/*/)
-user_array=("$USER" "Public" "steamuser")
+user_array=("$USER")
+# On peut rajouter des noms dans le tableau $user_array, il suffit de separer les entrée avec un espace
 ini_parent_dir="$WINEPREFIX_DIR/drive_c/Games/$GAME_DIR"
 goglog="$ini_parent_dir/goglog.ini"
 
