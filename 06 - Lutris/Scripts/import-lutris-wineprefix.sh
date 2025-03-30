@@ -1,5 +1,24 @@
 #!/bin/bash
 
+# Les scripts d'import et d'export necessitent de suivre des conventions, le jeu doit être installé dans 'drive_c/Games' (ou du moins l'executeur 'Launch.bat' doit y être dans un dossier), il ne doit y avoir qu'un seul dossier dans 'drive_c/Games'.
+# La commande d'exectution doit être dans un fichier "Launch.bat" dans le dossier du jeu. Par exemple pour mon prefixe de rain world j'ai un fichier "Launch.bat" dans "drive_c/Games/Rain World"
+# s'il y a des scripts au démarrage et à la sortie ils doivent s'appeller start.sh et stop.sh et se trouver dans le dossier scripts à la racine du prefixe, pareil pour un fichier de manette antimicro.
+#
+# Si vous utilisez un runner spécifique et qu'il est requis, il faudra le préciser dans le nom de l'archive entre accolades, par exemple "Final Fantasy VII [proton-exp-24-12-x86_64].tzst"
+# Voici les runners que je conseille :
+#
+# wine-ge-8-26-x86_64 -> Runner par défaut, bien pour la majorité des jeux
+# wine-ge-7-27-x86_64 -> Runner un peu plus ancien, requis pour certains jeux
+# wine-9.16-amd64 -> Runner avec une version vanilla récente de wine, requis pour certains vieux jeux
+# proton-exp-25-03-x86_64 -> Runner proton, cette version peut avoir quelque soucis avec certains jeux
+# proton-exp-24-12-x86_64 -> Runner proton, je trouve que c'est le plus comptatible
+# proton-exp-24-03-x86_64 -> Runner proton, un peu plus ancien
+# lutris-fshack-7.2-x86_64 -> Runner fshack, requis pour certains vieux jeux
+#
+# Normalement avec ceux-là vous devriez pouvoir tout faire tourner
+
+
+
 lutris_flatpak_runner_dir="$HOME/.var/app/net.lutris.Lutris/data/lutris/runners/wine"
 lutris_package_runner_dir="$HOME/.local/share/lutris/runners/wine"
 lutris_flatpak_option_file="$HOME/.var/app/net.lutris.Lutris/data/lutris/runners/wine.yml"
@@ -10,11 +29,16 @@ lutris_flatpak_cmd="flatpak run net.lutris.Lutris"
 lutris_package_cmd="lutris"
 games_dir="$HOME/Games"
 default_runner="wine-ge-8-26-x86_64"
+lutrisbefore_pid=$(pgrep -xo lutris)
 
 declare -A runners_map
 declare -A names_map
 declare -A files_map
 declare -A runners_needed
+
+if [ -n "$lutrisbefore_pid" ]; then
+  kill "$lutrisbefore_pid"
+fi
 
 # Affectation de variable en fonction du type d'installation
 check_flatpak_lutris_installed() {
@@ -125,6 +149,8 @@ for i in "${!names_map[@]}"; do
   gamepad=false
   preload_script=false
   prefix_dir="$games_dir/$slug"
+
+
   # extraction
   tar -I zstd -xvf "./$filename" -C "$games_dir"
   if [ $? -ne 0 ]; then
@@ -135,23 +161,28 @@ for i in "${!names_map[@]}"; do
   # Remplacer "anonuser" par le nom d'utilisateur dans system.reg
   if [ -f "${prefix_dir}/system.reg" ]; then
     sed -i 's|anonuser|'$USER'|g' "${prefix_dir}/system.reg"
-    echo -e "\033[32mLe nom d'utilisateur a été remplacé par '$USER' dans system.reg.\033[0m"
   fi
 
   # Remplacer "anonuser" par le nom d'utilisateur dans user.reg
   if [ -f "${prefix_dir}/user.reg" ]; then
     sed -i 's|anonuser|'$USER'|g' "${prefix_dir}/user.reg"
-    echo -e "\033[32mLe nom d'utilisateur a été remplacé par '$USER' dans user.reg.\033[0m"
   fi
 
   # Remplacer "anonuser" par le nom d'utilisateur dans userdef.reg
   if [ -f "${prefix_dir}/userdef.reg" ]; then
     sed -i 's|anonuser|'$USER'|g' "${prefix_dir}/userdef.reg"
-    echo -e "\033[32mLe nom d'utilisateur a été remplacé par '$USER' dans userdef.reg.\033[0m"
   fi
 
 
   gamefolder=$(basename "$prefix_dir/drive_c/Games/"*/)
+  ini_parent_dir="$prefix_dir/drive_c/Games/$gamefolder"
+  goglog="$ini_parent_dir/goglog.ini"
+
+
+  if [ -f "$goglog" ]; then
+    sed -i 's|anonuser|'$USER'|g' "$goglog"
+  fi
+
 
   # Vérification du dossier 'scripts'
   if [ -d "$games_dir/$slug/scripts" ]; then
@@ -170,34 +201,44 @@ for i in "${!names_map[@]}"; do
   fi
 
 
+
+
   # Création du fichier yml pour lutris
   cat > "$yml_file" <<EOL
 name: "$name"
 game_slug: "$slug"
-version: "$name"
+version: Installateur
 slug: "$slug"
-description: "$name"
 runner: wine
 
 script:
   game:
     arch: win64
-    exe: $prefix_dir/drive_c/Games/$gamefolder/Launch.bat
-    working_dir: $prefix_dir
-    prefix: $prefix_dir
+    exe: drive_c/Games/$gamefolder/Launch.bat
+    prefix: \$GAMEDIR
+  installer:
+  - task:
+      arch: win64
+      description: Création du préfixe en cours
+      name: create_prefix
+      prefix: \$GAMEDIR
 
-  wine:
-    version: $runner
 EOL
 
+
+
+
+  # on renomme le dossier extrait
+  mv "$prefix_dir" "${prefix_dir}TRUE"
   # Lancer Lutris en tâche de fond en important le fichier d'installation
   $lutris_cmd -i "$yml_file" &
   lutris_pid=$!  # Récupérer l'ID du processus Lutris direct après son démarrage
 
-  # Récupérer l'état initial du répertoire (avant création de fichiers)
+
+  # Récupérer l'état initial du prefixe
   initial_files=$(ls "$lutris_config_dir")
 
-  # Surveiller le répertoire sans `inotifywait`
+  # Surveiller le répertoire du prefixe
   initial_files=$(ls "$lutris_config_dir")
   new_files=""
 
@@ -209,20 +250,24 @@ EOL
 
   # Détecter l'ajout d'un fichier de réglage de jeu lutris pour fermer le processus de lutris
   config_file=$(echo "$new_files" | head -n 1)
+
+  while [ ! -f "$prefix_dir/user.reg" ]; do
+    sleep 0.4
+  done
+
+  # On vire le préfixe vierge pour le remplacer par le vrai
+  rm -r ${prefix_dir}
+  mv "${prefix_dir}TRUE" "$prefix_dir"
+
   kill $lutris_pid
 
-  # Afficher le processus actif
-  while kill -0 "$lutris_pid" > /dev/null 2>&1; do
-    echo "Le processus de lutris est en cours..."
-    sleep 1
-  done
 
   # Régler la version du runner wine/proton
   sed -i "s|^  version: .*|  version: $runner|" "$lutris_config_dir/$config_file"
 
   # Ajouter la section system
   if [ "$preload_script" = true ] || [ "$gamepad" = true ]; then
-    sed -i 's/^system: \{\}/system:/g' "$lutris_config_dir/$config_file"
+    sed -i 's/^system: {}$/system:/g' "$lutris_config_dir/$config_file"
   fi
 
   # Ajouter des configurations au démmarage et à la fermeture
@@ -234,10 +279,12 @@ EOL
 
   # Ajouter la configuration du gamepad
   if [ "$gamepad" = true ]; then
-    sed -i "/^system:/a\  antimicro_config: $prefix_dir/scripts/$gamepad_file" "$lutris_config_dir/$config_file"
+    sed -i "/^system:/a\  antimicro_config: $gamepad_file" "$lutris_config_dir/$config_file"
   fi
 
   rm "$yml_file"
+
+  echo -e "\e[32m$name installé\e[0m"
 done
 
-echo "Importation accomplie"
+echo -e "\e[32mFin du programme\e[0m"
