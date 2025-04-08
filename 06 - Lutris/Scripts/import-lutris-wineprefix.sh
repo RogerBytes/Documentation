@@ -1,27 +1,5 @@
 #!/bin/bash
 
-# Les scripts d'import et d'export necessitent de suivre des conventions, le jeu doit être installé dans 'drive_c/Games' (ou du moins l'executeur 'Launch.bat' doit y être dans un dossier), il ne doit y avoir qu'un seul dossier dans 'drive_c/Games'.
-# La commande d'exectution doit être dans un fichier "Launch.bat" dans le dossier du jeu. Par exemple pour mon prefixe de rain world j'ai un fichier "Launch.bat" dans "drive_c/Games/Rain World"
-# s'il y a des scripts au démarrage et à la sortie ils doivent s'appeller start.sh et stop.sh et se trouver dans le dossier scripts à la racine du prefixe, pareil pour un fichier de manette antimicro.
-#
-# Si vous utilisez un runner spécifique et qu'il est requis, il faudra le préciser dans le nom de l'archive entre accolades, par exemple "Final Fantasy VII [proton-exp-24-12-x86_64].tzst"
-# Voici les runners que je conseille :
-#
-# wine-ge-8-26-x86_64 -> Runner par défaut, bien pour la majorité des jeux
-# wine-ge-7-27-x86_64 -> Runner un peu plus ancien, requis pour certains jeux
-# wine-9.16-amd64 -> Runner avec une version vanilla récente de wine, requis pour certains vieux jeux
-# proton-exp-25-03-x86_64 -> Runner proton, cette version peut avoir quelque soucis avec certains jeux
-# proton-exp-24-12-x86_64 -> Runner proton, je trouve que c'est le plus comptatible
-# proton-exp-24-03-x86_64 -> Runner proton, un peu plus ancien
-# lutris-fshack-7.2-x86_64 -> Runner fshack, requis pour certains vieux jeux
-#
-# Normalement avec ceux-là vous devriez pouvoir tout faire tourner
-# Si le prefixe requis n'est pas installé le script le télécharera lors de l'import sinon vous devez mettre l'archive tzst du runner dans ./resources/ (dans le même repertoire que le script d'import)
-#
-# L'utilisation du script d'export se fait via des commandes/arguments, elles sont décrites dans la doc du programme
-# Pour l'utilisation du script d'import il suffit de mettre le script dans le dossier où se trouvent le prefixe du jeu au format tzst, et de le lancer, s'il y a plusieurs prefixes de jeux dans le dossier, le script d'import les importera les uns à la suite des autres.
-
-
 lutris_flatpak_runner_dir="$HOME/.var/app/net.lutris.Lutris/data/lutris/runners/wine"
 lutris_package_runner_dir="$HOME/.local/share/lutris/runners/wine"
 lutris_flatpak_option_file="$HOME/.var/app/net.lutris.Lutris/data/lutris/runners/wine.yml"
@@ -266,7 +244,10 @@ EOL
 
 
   # Régler la version du runner wine/proton
-  sed -i "s|^  version: .*|  version: $runner|" "$lutris_config_dir/$config_file"
+  sed -i 's/^wine: *{}/wine:/' "$lutris_config_dir/$config_file"
+  sed -i '/^wine:/a\  version: '"$runner" "$lutris_config_dir/$config_file"
+
+
 
   # Ajouter la section system
   if [ "$preload_script" = true ] || [ "$gamepad" = true ]; then
@@ -275,8 +256,8 @@ EOL
 
   # Ajouter des configurations au démmarage et à la fermeture
   if [ "$preload_script" = true ]; then
-    sed -i '/^system:/a\  prelaunch_command: $prefix_dir/scripts/start.sh' "$lutris_config_dir/$config_file"
-    sed -i '/^system:/a\  prelaunch_command: $prefix_dir/scripts/stop.sh' "$lutris_config_dir/$config_file"
+    sed -i "/^system:/a\  prelaunch_command: $prefix_dir/scripts/start.sh" "$lutris_config_dir/$config_file"
+    sed -i "/^system:/a\  postexit_command: $prefix_dir/scripts/stop.sh" "$lutris_config_dir/$config_file"
     sed -i "/^system:/a\  locale: ''" "$lutris_config_dir/$config_file"
   fi
 
