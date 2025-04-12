@@ -1,21 +1,19 @@
 #!/bin/bash
 
-TEMP_FILE="/tmp/lutris_games.txt"
-OUTPUT_SCRIPT="./lutris_export_list_$(date +%Y%m%d_%H%M%S).sh"
+OUTPUT_FILE="./lutris_export_list_$(date +%Y%m%d_%H%M%S).sh"
+GAMES_DIR="$HOME/.config/lutris/games"
 
-# Partie 1: Extraction des informations dans un fichier temporaire
-echo "Extraction des informations des jeux de Lutris..."
-lutris -l > "$TEMP_FILE"
+echo "#!/bin/bash" > "$OUTPUT_FILE"
 
-# Partie 2: Génération du script avec les commandes export
-echo "#!/bin/bash" > "$OUTPUT_SCRIPT"
+for yml in "$GAMES_DIR"/*.yml; do
+    name=$(grep '^name:' "$yml" | sed "s/name:[ ]*['\"]*//; s/['\"]*$//; s/''/'/g")
+    name=$(echo "$name" | sed -e 's/\\u2019/'"'"'/g')  # remplace \u2019 par une apostrophe simple
+    name=$(echo "$name" | sed 's/"/\\"/g')
 
-# Lecture ligne par ligne en ignorant l'entête
-tail -n +2 "$TEMP_FILE" | while IFS='|' read -r _ game_name slug _ _; do
-    game_name_trimmed=$(echo "$game_name" | xargs)
-    slug_trimmed=$(echo "$slug" | xargs)
-    echo "./export-lutris-wineprefix.sh \"$slug_trimmed\" \"$game_name_trimmed\"" >> "$OUTPUT_SCRIPT"
+    slug=$(grep '^game_slug:' "$yml" | sed 's/game_slug:[ ]*//; s/"/\\"/g')
+
+    echo "./export-lutris-wineprefix.sh \"$slug\" \"$name\"" >> "$OUTPUT_FILE"
 done
 
-chmod +x "$OUTPUT_SCRIPT"
-echo "Script généré : $OUTPUT_SCRIPT"
+chmod +x "$OUTPUT_FILE"
+echo "Export terminé : $OUTPUT_FILE"
