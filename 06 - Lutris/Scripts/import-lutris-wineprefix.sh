@@ -194,12 +194,10 @@ runner: wine
 
 script:
   game:
-    arch: win64
     exe: drive_c/Games/$gamefolder/Launch.bat
     prefix: \$GAMEDIR
   installer:
   - task:
-      arch: win64
       description: Création du préfixe en cours
       name: create_prefix
       prefix: \$GAMEDIR
