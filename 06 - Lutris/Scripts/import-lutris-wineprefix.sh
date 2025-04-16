@@ -154,6 +154,11 @@ for i in "${!names_map[@]}"; do
     sed -i 's|anonuser|'$USER'|g' "${prefix_dir}/userdef.reg"
   fi
 
+  # Remplacer "anonuser" par le nom d'utilisateur dans lutris.json
+  if [ -f "${prefix_dir}/lutris.json" ]; then
+    sed -i 's|anonuser|'$USER'|g' "${prefix_dir}/lutris.json"
+  fi
+
 
   gamefolder=$(basename "$prefix_dir/drive_c/Games/"*/)
   ini_parent_dir="$prefix_dir/drive_c/Games/$gamefolder"

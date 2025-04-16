@@ -53,10 +53,11 @@ LEVEL=${4:-3}
 GAMES_DIR="${HOME}/Games"
 WINEPREFIX_DIR="${GAMES_DIR}/${WINEPREFIX_NAME}"
 GAME_DIR=$(basename "$WINEPREFIX_DIR/drive_c/Games"/*/)
-user_array=("$USER")
+user_array=("$USER" "harry")
 # On peut rajouter des noms dans le tableau $user_array, il suffit de separer les entrée avec un espace
 ini_parent_dir="$WINEPREFIX_DIR/drive_c/Games/$GAME_DIR"
 goglog="$ini_parent_dir/goglog.ini"
+lutris_json="${WINEPREFIX_DIR}/lutris.json"
 
 # Remplacer chaque valeur du tableau par "anonuser" dans goglog.ini
 if [ -f "$goglog" ]; then
@@ -67,6 +68,17 @@ if [ -f "$goglog" ]; then
 else
   echo "Le fichier goglog.ini n'existe pas"
 fi
+
+# Remplacer chaque valeur du tableau par "anonuser" dans lutris_json
+if [ -f "$lutris_json" ]; then
+  for user in "${user_array[@]}"; do
+    sed -i "s|$user|anonuser|g" "$lutris_json"
+  done
+  echo "Les utilisateurs ont été remplacés par 'anonuser' dans lutris.json"
+else
+  echo "Le fichier lutris.json n'existe pas"
+fi
+
 
 # Vérifie si le nombre d'arguments est correct
 if [ "$#" -lt 2 ] || [ "$#" -gt 5 ]; then
