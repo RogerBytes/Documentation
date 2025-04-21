@@ -1,0 +1,31 @@
+CalDAV (gestion calendrier), CardDAV (gestion carnet d'adresse) et WebDAV (gestion fichiers à distance)
+
+Je recommande de ne pas mettre tous ses oeufs dans le même panier, y compris si vous passez par un serveur perso (https://github.com/fstanis/awesome-webdav).
+
+Pour le CalDAV et CardDAV
+https://vivaldi.net/wp-login.php
+https://fruux.com  (https://dav.fruux.com)
+https://www.etesync.com
+
+Je n'ai pas testé les services gratuits d'etesync, je recommande d'utiliser vivaldi (il suffit de faire un compte), j'ai régulièrement des soucis de sync avec fruux
+
+
+Pour le WebDAV
+
+Le seul qui fonctionne (10Gb gratuits)
+https://filelu.com
+Créer un dossier Floccus à la racine.
+https://webdav.filelu.com/Floccus/
+
+
+
+Pour le cardav sur davx5 je conseille d'utiliser "connexion avec une adresse de courriel" pour vivaldi
+sinon
+https://calendar.vivaldi.net/calendars/<user@vivaldi.net>/default/
+et
+https://calendar.vivaldi.net/addressbooks/<user@vivaldi.net>/default/
+
+/default/ est le nom de l'agenda et <user@vivaldi.net> c'est votre login
+
+
+https://calendar.vivaldi.net/calendars/h.richmond@vivaldi.net

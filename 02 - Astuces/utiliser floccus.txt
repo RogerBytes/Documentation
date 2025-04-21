@@ -1,0 +1,9 @@
+Il faut utiliser un service webdav comme fruxx (ou en heberger un soi-même)
+https://filelu.com
+
+URL WebDAV :
+https://webdav.filelu.com/Floccus/
+
+
+Nom d'utilisateur
+le nom d'user (pas l'adresse mail de connexion)
