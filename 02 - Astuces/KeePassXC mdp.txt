@@ -42,8 +42,9 @@ Voilà, il est correctement initialisé
 
 C/ Sur android
 
+Dans KeePassXC allez dans "Base de données/Enregistrer la base de données sous/Mots de passe android.kdbx" et l'envoyer sur votre android.
 Via fdroid télécharger "KeePassDX" et importez le fichier *.kdbx.
+Importez le fichier, rien de spécial au niveau de l'utilisation, il prend aussi en charge des options en plus, comme les empreintes digitales.
 
 
-
-Toujours pas
+.
