@@ -118,6 +118,8 @@ https://addons.mozilla.org/fr/firefox/addon/proxy-switcher-and-manager/
 38. Bypass paywall : Permet d'afficher les articles correctement
 https://gitflic.ru/project/magnolia1234/bypass-paywalls-firefox-clean (il faut décompresser le zip et compresser les élementd du zip depuis la racin de ce dernier, ne marche pas avec un dossier en zip; iil faut que ce soit les fichiers)
 
+39. Brave Search
+https://addons.mozilla.org/fr/firefox/addon/brave-search/
 
 Scripts :
 https://yggland.fr/userscripts/YGGTools.user.js
