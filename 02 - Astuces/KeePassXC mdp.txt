@@ -22,6 +22,8 @@ Continuer la démarche normalement et enregistrer votre fichier avec un mot de p
 
 4. Intégration avec le navigateur
 
+--------------------------
+
 B/ Intégration avec le navigateur
 
 1. Aller dans "Outils/Paramètres", dans la navbar de gauche, cliquer sur "Intégration aux navigateurs" et cocher "Activer l'intégration aux navigateurs" et activer les navigateurs.
@@ -36,11 +38,11 @@ https://github.com/keepassxreboot/keepassxc-browser/wiki/Troubleshooting-guide
 
 Voilà, il est correctement initialisé
 
-C/ Synchroniser sur WebDaV
+--------------------------
 
-Pas encore disponible en stable
+C/ Sur android
 
-
+Via fdroid télécharger "KeePassDX" et importez le fichier *.kdbx.
 
 
 
