@@ -131,6 +131,11 @@ https://greasyfork.org/en/scripts/491326-pixeldrain-download-bypass
 https://update.greasyfork.org/scripts/498197/Auto%20Skip%20YouTube%20Ads.user.js
 https://greasyfork.org/en/scripts/34613-youtube-multi-downloader-v9-2-yt1s-com-no-ads-new-layout-for-yt
 https://greasyfork.org/en/scripts/521089-advanced-youtube-age-restriction-bypass
+https://greasyfork.org/fr/scripts/499831-anti-adblock-detector
+
+Et faire aussi
+https://reek.github.io/anti-adblock-killer/#userscript
+
 
 réglage youtube redux
 https://i.imgur.com/p5mL30S.png
