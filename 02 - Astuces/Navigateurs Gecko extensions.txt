@@ -124,6 +124,9 @@ https://addons.mozilla.org/fr/firefox/addon/brave-search/
 40. Load Progress Bar : affiche le chargement de page en direct
 https://addons.mozilla.org/fr/firefox/addon/load-progress-bar/
 
+41. Date Today : Affiche l'heure et la date
+https://addons.mozilla.org/fr/firefox/addon/date-today/
+
 Scripts :
 https://yggland.fr/userscripts/YGGTools.user.js
 https://yggland.fr/userscripts/YGGDark.user.js
