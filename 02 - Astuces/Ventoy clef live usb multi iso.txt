@@ -1,0 +1,64 @@
+Ventoy permet d'ajouter facilement des ISO pour différentes architectures (AMD64, ARM, etc.) sur la même clé USB, il suffit de copier les ISO correspondants et de choisir celui adapté lors du démarrage.
+
+1 Téléchargement
+https://www.ventoy.net/en/download.html
+Prenez le *.tar.gz
+Ne prenez pas "ventoy-x.x.xx-livecd.iso", c'est pour un autre usage.
+Décompresser l'archive *.tar.gz téléchargée.
+
+2 Lancer l'installation
+Lance le programme Ventoy2Disk ("VentoyGUI.x86_64" si vous êtes sur cet architecture) par le terminal :
+sudo ./VentoyWeb.sh
+Et cliquez sur le lien du terminal
+
+Dans language, choisir "Français"
+Dans Option/Partition choisissez MBR si c'est plus pour des machines 32x et GPT pour de l'ARM et x64
+-> pour l'instant en gpt ça ne marche pas pour mon iso de linux mint
+
+
+3 Péparer la clef Ventoy
+Sélectionner la clé USB dans la liste dans l'encadré "Périphérique" et cliquer sur "Installation" (attention ça efface tout).
+
+4 Utilisation
+
+Copiez simplement les ISO dans la clé USB formatée 'Ventoy'.
+Redémarrez votre PC et bootez depuis la clé USB : Ventoy affichera un menu pour sélectionner l'ISO à démarrer.
+
+5 ISO Windows
+
+Dans ventoy il faut que l'option "Secure Boot Support" soit désactivée et mettre la partition en GPT
+
+Attention quand on copie un iso windows, il faut taper sync pour vérifier que tout est bien copié
+Copie ton ISO Windows normalement sur la clé Ventoy.
+Ouvre un terminal et utilise la commande :
+sync
+
+Ensuite vérifier les fichiers (en ayant l'original sur le bureau dans un repertoire isofiles)
+
+
+ISO_NAME="windows_11_23h2.iso"
+ISO_ORIG="$(xdg-user-dir DESKTOP)/isofiles/$ISO_NAME"
+ISO_USB="/media/$(whoami)/Ventoy/$ISO_NAME"
+
+cp "$ISO_ORIG" "/media/$(whoami)/Ventoy/"
+
+if [ "$(sha256sum "$ISO_ORIG" | awk '{print $1}')" = "$(sha256sum "$ISO_USB" | awk '{print $1}')" ]; then
+    echo -e "\e[32mOK : les fichiers sont identiques\e[0m"
+else
+    echo -e "\e[31mERREUR : les fichiers sont différents\e[0m"
+fi
+
+
+Attends que la commande termine (aucun message = tout va bien).
+
+
+
+5 Sites pour les iso de distributions
+
+https://linuxmint.com/
+https://libreelec.tv/
+https://batocera.org/
+https://massgrave.dev/genuine-installation-media
+https://archlinux.org/download/
+
+.
