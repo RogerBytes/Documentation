@@ -127,6 +127,9 @@ https://addons.mozilla.org/fr/firefox/addon/load-progress-bar/
 41. Date Today : Affiche l'heure et la date
 https://addons.mozilla.org/fr/firefox/addon/date-today/
 
+42. Open bookmarks in a new tab
+https://addons.mozilla.org/fr/firefox/addon/open-bookmarks-in-a-new-tab/
+
 Scripts :
 https://yggland.fr/userscripts/YGGTools.user.js
 https://yggland.fr/userscripts/YGGDark.user.js
