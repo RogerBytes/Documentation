@@ -6,6 +6,8 @@ Docker est une plateforme logicielle qui permet de créer, déployer et exécute
 
 ## Installation
 
+### Installer Docker Engine
+
 Source depuis le site de docker [Doc de docker](https://docs.docker.com/engine/install/ubuntu/#install-using-the-repository)
 
 ```bash
@@ -19,7 +21,17 @@ echo \
   $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" | \
   sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 sudo nala update
-sudo nala install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+sudo nala install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin pass
+```
+
+### Installer Docker Desktop
+
+Source depuis le site de docker [Doc de docker](https://docs.docker.com/desktop/setup/install/linux/)
+
+```bash
+wget -O docker-desktop-amd64.deb "https://desktop.docker.com/linux/main/amd64/docker-desktop-amd64.deb?utm_source=docker&utm_medium=webreferral&utm_campaign=docs-driven-download-linux-amd64"
+sudo nala install -y ./docker-desktop-amd64.deb
+rm ./docker-desktop-amd64.deb
 ```
 
 Voilà, Docker Desktop est installé, ainsi que docker engine (inclus dans le paquet)
@@ -31,7 +43,8 @@ Voilà, Docker Desktop est installé, ainsi que docker engine (inclus dans le pa
 ### Connexion aux services en ligne de docker
 
 Commencez par faire un compte sur :
-[hub.docker.com](https://hub.docker.com/signup)
+[hub.docker.com](https://hub.docker.com/signup)  
+Si vous avez un compte connectez vous sur [hub.docker.com/login](https://app.docker.com/login)
 
 Si vous essayez de vous connecter ou de vous inscrire vous aurez le message :
 `Unable to log in, you must initialize pass before login in to docker desktop`
