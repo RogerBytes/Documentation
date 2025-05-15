@@ -146,6 +146,18 @@ NIANIANIA, on appelle le snippet avec `form`
 }
 ```
 
+### PHP - Strict mode
+
+NIANIANIA, on appelle le snippet avec `printarray`
+
+```json
+"Strict mode":{
+  "prefix": "strict",
+  "body": "declare(strict_types=1);",
+  "description": "Empêche les conversions implicites et automatiques de types."
+}
+```
+
 ### PHP - Print Array
 
 NIANIANIA, on appelle le snippet avec `printarray`
