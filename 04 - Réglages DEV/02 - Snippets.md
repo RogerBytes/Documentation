@@ -118,6 +118,20 @@ Permet d'ajouter un script en asynchrone différer, on appelle le snippet avec `
 }
 ```
 
+### HTML - PHP Line
+
+Permet d'ajouter un bloc de php, on appelle le snippet avec `phpb`
+
+```json
+"PHP Line": {
+  "prefix": "php",
+  "body": [
+    "<?php $0 ?>"
+  ],
+  "description": "Insère un bloc PHP sur une ligne"
+}
+```
+
 ### HTML - PHP Block
 
 Permet d'ajouter un bloc de php, on appelle le snippet avec `phpb`
