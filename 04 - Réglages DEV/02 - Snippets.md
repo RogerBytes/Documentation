@@ -118,6 +118,36 @@ Permet d'ajouter un script en asynchrone différer, on appelle le snippet avec `
 }
 ```
 
+### HTML - PHP Block
+
+Permet d'ajouter un bloc de php, on appelle le snippet avec `phpb`
+
+```json
+"PHP Block": {
+  "prefix": "phpb",
+  "body": [
+    "<?php",
+    "\t$0",
+    "?>"
+  ],
+  "description": "Insère un bloc PHP"
+}
+```
+
+### HTML - PHP Echo Block
+
+Permet d'ajouter un bloc echo de php, on appelle le snippet avec `phpe`
+
+```json
+"PHP Echo Block": {
+  "prefix": "phpe",
+  "body": [
+    "<?= $0 ?>"
+  ],
+  "description": "Insère un bloc PHP court pour echo"
+}
+```
+
 ### HTML - Image full attributes
 
 Balise image avec tous ses attributs, on appelle le snippet avec `imgA`
@@ -142,7 +172,7 @@ NIANIANIA, on appelle le snippet avec `form`
 "PHP form": {
   "prefix": "form",
   "body": "if(\\$_SERVER['REQUEST_METHOD']==='${1:POST}' ${2:&& isset(\\$_${3:POST}['$4'])})\r{$0}",
-  "description": "Ouvre et ferme les balises PHP"
+  "description": "Condition de traitement de formulaire (POST ou GET) avec vérification optionnelle de champ"
 }
 ```
 
