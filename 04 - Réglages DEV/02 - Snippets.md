@@ -120,7 +120,7 @@ Permet d'ajouter un script en asynchrone différer, on appelle le snippet avec `
 
 ### HTML - PHP Line
 
-Permet d'ajouter un bloc de php, on appelle le snippet avec `phpb`
+Permet d'ajouter un bloc de php, on appelle le snippet avec `php`
 
 ```json
 "PHP Line": {
@@ -159,6 +159,20 @@ Permet d'ajouter un bloc echo de php, on appelle le snippet avec `phpe`
     "<?= $0 ?>"
   ],
   "description": "Insère un bloc PHP court pour echo"
+}
+```
+
+### HTML - PHP Debug
+
+Permet d'ajouter un bloc echo de php, on appelle le snippet avec `phpd`
+
+```json
+"PHP Debug": {
+  "prefix": "phpd",
+  "body": [
+    "<!-- [DEBUG] --><pre><?php var_dump(${1:\\$_REQUEST}); /* print_r(${1:\\$_REQUEST}); */ /* echo var_export(${1:\\$_REQUEST}, true); */ ?></pre>"
+  ],
+  "description": "Bloc PHP debug compact avec var_dump par défaut sur \\$_REQUEST et alternatives commentées"
 }
 ```
 
