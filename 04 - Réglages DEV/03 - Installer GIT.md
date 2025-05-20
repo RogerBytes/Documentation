@@ -82,15 +82,21 @@ ssh-add ~/.ssh/id_ed25519
 Pour faire en sorte que votre clef soit accessible via votre IDE
 
 ```bash
-cat << 'EOF' >> ~/.zshrc
+cat << EOF >> ~/.zshrc
 
-# Correction SSH pour terminal intégré de VS Code
+# Correction SSH VS Code (version sûre)
 if [ -n "\$VSCODE_PID" ]; then
-  export SSH_AUTH_SOCK=\$(gpgconf --list-dirs agent-ssh-socket)
-  gpgconf --launch gpg-agent >/dev/null 2>&1
+  export GPG_TTY=\$(tty)
+  export SSH_AUTH_SOCK=\$(gpgconf --list-dirs agent-ssh-socket 2>/dev/null)
+  gpgconf --launch gpg-agent >/dev/null 2>&1 &
 fi
-source ~/.zshrc
 EOF
+
+source ~/.zshrc
+
+export SSH_AUTH_SOCK=$(gpgconf --list-dirs agent-ssh-socket)
+echo $SSH_AUTH_SOCK
+
 ```
 
 Vous aurez à taper le mot de passe de votre clef ssh.
