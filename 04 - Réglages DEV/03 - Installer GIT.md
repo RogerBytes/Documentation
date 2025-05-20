@@ -98,7 +98,7 @@ ssh-add ~/.ssh/id_ed25519
 
 GPG s'ouvre et vous demande de mettre un mdp pour acceder à votre clef ssh, vous pouvez laisser le même mdp.
 
-Vous n'aurez plus à taper le mot de passe de votre clef ssh, normalement;, on crose les oid.
+Vous n'aurez plus à taper le mot de passe de votre clef ssh, ou au maximum une seule fois par session.
 
 ## Générer un nouveau token en CLI
 
