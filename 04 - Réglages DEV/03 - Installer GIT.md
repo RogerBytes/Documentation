@@ -96,7 +96,9 @@ export SSH_AUTH_SOCK=$(gpgconf --list-dirs agent-ssh-socket)
 ssh-add ~/.ssh/id_ed25519
 ```
 
-Vous aurez à taper le mot de passe de votre clef ssh.
+GPG s'ouvre et vous demande de mettre un mdp pour acceder à votre clef ssh, vous pouvez laisser le même mdp.
+
+Vous n'aurez plus à taper le mot de passe de votre clef ssh, normalement.
 
 ## Générer un nouveau token en CLI
 
