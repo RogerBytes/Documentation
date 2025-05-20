@@ -117,3 +117,19 @@ Password store initialized for 5BB54DF1XXXXXXXXF87XXXXXXXXXXXXXX945A
 ```
 
 Maintenant il ne vous reste plus qu'à cliquer sur le bouton "Sign in", il vous redirigera sur le site de docker pour vous connecter / déconnecter.
+
+### Diminuer les demandes de mdm de gnupg
+
+Pour lui mettre une durée de 8 heures.
+
+```bash
+echo -e "default-cache-ttl 28800\nmax-cache-ttl 28800" > ~/.gnupg/gpg-agent.conf
+```
+
+Les modifications seront prises en compte au redémarrage.
+
+Sinon pour éviter d'attendre un reboot pour appliquer les changements :
+
+```bash
+gpgconf --kill gpg-agent && gpgconf --launch gpg-agent
+```
