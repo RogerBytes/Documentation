@@ -73,7 +73,7 @@ The key's randomart image is:
 +----[SHA256]-----+
 ```
 
-Et, enfin, ajoutez votre clef ssh au ssh-agent :
+Et, enfin, ajoutez votre clef ssh au ssh-agent (bizarre des fois il redemande le mdp) :
 
 ```bash
 ssh-add ~/.ssh/id_ed25519
