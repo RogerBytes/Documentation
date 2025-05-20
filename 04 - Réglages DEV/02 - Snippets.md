@@ -237,7 +237,13 @@ Snippet pour charger ma lib pour ma fonction de chemin path()
   "prefix": "reqpath",
   "body": "require_once dirname(__DIR__) . DIRECTORY_SEPARATOR . '${1:lib}' . DIRECTORY_SEPARATOR . 'path.php';",
   "description": "Charge la fonction path() depuis un dossier (lib par défaut)."
+},
+"Require path helper (depuis racine)": {
+  "prefix": "reqpathroot",
+  "body": "require_once __DIR__ . DIRECTORY_SEPARATOR . '${1:lib}' . DIRECTORY_SEPARATOR . 'path.php';",
+  "description": "Charge path.php depuis un dossier, quand on est à la racine du projet."
 }
+
 ```
 
 ________________________________________________________
