@@ -228,6 +228,18 @@ NIANIANIA, on appelle le snippet avec `printarray`
 }
 ```
 
+### PHP - Require path helper
+
+Snippet pour charger ma lib pour ma fonction de chemin path()
+
+```json
+"Require path helper": {
+  "prefix": "reqpath",
+  "body": "require_once dirname(__DIR__) . DIRECTORY_SEPARATOR . '${1:lib}' . DIRECTORY_SEPARATOR . 'path.php';",
+  "description": "Charge la fonction path() depuis un dossier (lib par défaut)."
+}
+```
+
 ________________________________________________________
 
 ## Auteurs
