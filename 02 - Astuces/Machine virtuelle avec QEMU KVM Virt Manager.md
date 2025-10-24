@@ -34,7 +34,7 @@
 
 ```bash
 sudo nala update
-sudo nala install -y qemu-system libvirt-daemon-system libvirt-clients bridge-utils virt-manage virtiofsd samba
+sudo nala install -y qemu-system libvirt-daemon-system libvirt-clients bridge-utils virt-manager virtiofsd samba
 ```
 
 ## Installation
@@ -43,10 +43,9 @@ sudo nala install -y qemu-system libvirt-daemon-system libvirt-clients bridge-ut
 
 ```
 sudo usermod -aG libvirt $USER
-mkdir -p ~/Local/VMs/iso
-chmod 777 ~/Local/VMs/iso
-mkdir -p ~/Local/VMs/Partage
-chmod 777 ~/Local/VMs/Partage
+mkdir -p ~/Partage
+sudo chown nobody:users ~/Partage
+sudo chmod 2775 ~/Partage
 ```
 
 ### Activer libvirt et virtlogd
@@ -101,47 +100,37 @@ Pour ajouter le dossier partagé
 sudo tee -a /etc/samba/smb.conf >/dev/null <<EOF
 
 [Partage]
-   path = /home/$USER/Local/VMs/Partage
+   path = /home/%U/Partage
    browsable = yes
    read only = no
-   guest ok = yes
-   force user = $USER
+   create mask = 0664
+   directory mask = 2775
+   valid users = %U
 EOF
 
 sudo systemctl restart smbd
+sudo systemctl enable smbd
 ```
 
 Récupérer son ip avec
 
 ```bash
-ip -4 -o addr show wlp41s0 | awk '{print $4}' | cut -d/ -f1
+ip addr show virbr0 | grep -oP 'inet \K[\d\.]+'
 ```
 
-il retourne `192.168.1.91` 
+il retourne `192.168.122.1` dans mon cas, donc 
 
-Il faut maintenant se connecter à 
+Dans la machine windows : 
+ * Ouvre l’explorateur de fichiers.
+ * Clique sur **“Ce PC”** → **“Connecter un lecteur réseau”**.
+ * Dossier :
 
 ```
-smb://192.168.1.91/Partage
+\\192.168.122.1\Partage
 ```
+ * Coche **“Se reconnecter à la connexion”**.
+ * Quand demandé : entre ton **nom d’utilisateur Linux** et ton **mot de passe Samba**.
 
-### Windows 10/11
-
-Attention sur Tiny10 le smb doit être activé
-
-```powershell
-Enable-WindowsOptionalFeature -Online -FeatureName SMB1Protocol -NoRestart
-```
-
-- Ouvre l’explorateur de fichiers.
-
-- Clic droit sur "Ce PC" et "Add network location" et "Choisir un emplacement réseau personnalisé"
-
-- Dans la barre d’adresse, tape `\\192.168.1.91\Partage` et appuie sur Entrée.
-
-- Si ça demande un identifiant, renseigne ton utilisateur Samba (Linux) et mot de passe.
-
----
 
 ### Linux (Nautilus, Dolphin, etc.)
 
@@ -160,3 +149,49 @@ Enable-WindowsOptionalFeature -Online -FeatureName SMB1Protocol -NoRestart
 - Tape `smb://192.168.1.91/Partage` puis clique sur **Se connecter**.
 
 - Identifie-toi avec ton utilisateur Samba si demandé.
+
+---
+
+## Créer un lanceur pour une VM
+
+```
+sudo virsh list --all
+```
+
+Trouver le nom de la machine dans la liste, par exemple `Windows10` chez moi.
+
+et lancez avec `virsh start NOM_VM ; virt-manager --connect qemu:///system --show-domain-console NOM_VM ; virsh shutdown NOM_VM`
+donc pour moi, pour ma vm "Windows10"
+
+```
+virsh start Windows10 ; virt-manager --connect qemu:///system --show-domain-console Windows10
+```
+
+Ensuite je créé un bin :
+
+```
+sudo tee /usr/local/bin/lancer-windows10.sh > /dev/null <<'EOF'
+#!/bin/bash
+virsh start Windows10
+virt-manager --connect qemu:///system --show-domain-console Windows10
+EOF
+
+sudo chmod +x /usr/local/bin/lancer-windows10.sh
+
+sudo tee /usr/share/applications/Windows10.desktop > /dev/null <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=Windows10 VM
+Comment=Lancer Windows10 via Virt-Manager
+Exec=/usr/local/bin/lancer-windows10.sh
+Icon=computer
+Terminal=false
+Categories=Utility;
+EOF
+```
+
+
+
+
+
+
