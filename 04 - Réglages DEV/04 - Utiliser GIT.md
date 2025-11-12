@@ -216,10 +216,17 @@ git branch
 git branch #nouveau nom#
 ```
 
-### Supprimer une branche
+### Supprimer une branche locale
 
 ```bash
 git branch -d harry
+# Si la branche à supprimer s'appelle "harry"
+```
+
+### Supprimer une branche distante
+
+```bash
+git push origin --delete nom-de-la-branche
 # Si la branche à supprimer s'appelle "harry"
 ```
 
@@ -256,7 +263,6 @@ git remote -v
 git branch -r
 
 ```
-
 
 ### Réinitialiser le remote
 
