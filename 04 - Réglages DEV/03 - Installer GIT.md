@@ -16,7 +16,6 @@ sudo nala install -y git
 sudo apt install -y git
 ```
 
-
 ## Régler Git
 
 ### Informations d'utilisateur
