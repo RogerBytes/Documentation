@@ -261,7 +261,12 @@ git remote -v
 
 ```bash
 git branch -r
+```
 
+### Lister les branches distantes et locales
+
+```bash
+git branch -a
 ```
 
 ### Réinitialiser le remote
