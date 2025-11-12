@@ -273,6 +273,8 @@ Cela va créer un fichier nommé `.nojekyll` à la racine de votre projet, empê
 
 [Page Organisation de GitHub](https://github.com/settings/organizations)
 
+## Ajouter un collaborateur
+
 Pour ajouter un collaborateur à votre repo (j'arrive pas à le faire en CLI) :
 
 ```bash
