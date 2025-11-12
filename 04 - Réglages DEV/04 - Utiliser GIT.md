@@ -74,39 +74,6 @@ Ensuite on utilise les commandes normales (`git push` sans rien d'autre derrièr
 
 ---
 
-## Ouvrir une page github pour héberger une page web
-
-Allez sur la page :
-[https://github.com/#NomUser#ouNomOrg/#NomRepo/settings/pages](https://github.com/#NomUser#ouNomOrg/#NomRepo/settings/pages)
-Et modifiez `#NomUser#ouNomOrg` et `#NomRepo` pour correspondre à chez vous.
-
--> Par exemple pour mon repo "testjeuweb" se trouvant dans mon org "RogerBytes-Softworks"
-[https://github.com/RogerBytes-Softworks/testjeuweb/settings/pages](https://github.com/RogerBytes-Softworks/testjeuweb/settings/pages)
-
-Sous branche, cliquez sur `None` choisissez laquelle contient votre html (chez moi sur master).
-Puis cliquez sur `Save`
-
-Au refresh de page le lien n’apparaît pas immédiatement
-il faut minimum une minute ou deux avant que le site soit actualisé/créé.
-
-Ca donnera un lien du type
-[https://#NomUser#ouNomOrg.github.io/#NomRepo/](https://#NomUser#ouNomOrg.github.io/#NomRepo/)
-
-dans mon cas :
-[https://rogerbytes-softworks.github.io/testjeuweb/](https://rogerbytes-softworks.github.io/testjeuweb/)
-
-### Conflit avec NodeJS
-
-Attention, GitHub Pages fait un conflit avec node js, pour le résoudre, à la racine de votre projet :
-
-```bash
-touch .nojekyll
-```
-
-Cela va créer un fichier nommé `.nojekyll` à la racine de votre projet, empêchant GitHub de semer la zizanie.
-
----
-
 ## Faire un Merge
 
 On va sur la branche de destination
@@ -185,15 +152,6 @@ gh repo list
 
 ---
 
-## Créer une organisation
-
-[Page Organisation de GitHub](https://github.com/settings/organizations)
-
-Pour ajouter un collaborateur à votre repo (j'arrive pas à le faire en CLI) :
-[https://github.com/ORGANISATION/REPO/settings/access](https://github.com/ORGANISATION/REPO/settings/access)
-
----
-
 ## Commandes diverses
 
 ### Supprimer l'initialisation de dépôt local
@@ -236,7 +194,7 @@ git push origin --delete nom-de-la-branche
 git branch -M #nouveau nom#
 ```
 
-### Lier ma branche au dépot distant
+### Lier ma branche au dépôt distant
 
 ```bash
 git push --set-upstream origin #NomDeBranche
@@ -278,7 +236,77 @@ git remote remove origin
 # et recommencez le remote add suivi du push --set-upstream
 ```
 
-###
+## Ouvrir une page github pour héberger une page web
+
+Allez sur la page :
+[https://github.com/#NomUser#ouNomOrg/#NomRepo/settings/pages](https://github.com/#NomUser#ouNomOrg/#NomRepo/settings/pages)
+Et modifiez `#NomUser#ouNomOrg` et `#NomRepo` pour correspondre à chez vous.
+
+-> Par exemple pour mon repo "testjeuweb" se trouvant dans mon org "RogerBytes-Softworks"
+[https://github.com/RogerBytes-Softworks/testjeuweb/settings/pages](https://github.com/RogerBytes-Softworks/testjeuweb/settings/pages)
+
+Sous branche, cliquez sur `None` choisissez laquelle contient votre html (chez moi sur master).
+Puis cliquez sur `Save`
+
+Au refresh de page le lien n’apparaît pas immédiatement
+il faut minimum une minute ou deux avant que le site soit actualisé/créé.
+
+Ca donnera un lien du type
+[https://#NomUser#ouNomOrg.github.io/#NomRepo/](https://#NomUser#ouNomOrg.github.io/#NomRepo/)
+
+dans mon cas :
+[https://rogerbytes-softworks.github.io/testjeuweb/](https://rogerbytes-softworks.github.io/testjeuweb/)
+
+### Conflit avec NodeJS
+
+Attention, GitHub Pages fait un conflit avec node js, pour le résoudre, à la racine de votre projet :
+
+```bash
+touch .nojekyll
+```
+
+Cela va créer un fichier nommé `.nojekyll` à la racine de votre projet, empêchant GitHub de semer la zizanie.
+
+---
+
+## Créer une organisation
+
+[Page Organisation de GitHub](https://github.com/settings/organizations)
+
+Pour ajouter un collaborateur à votre repo (j'arrive pas à le faire en CLI) :
+
+```bash
+gh api \
+  -X PUT \
+  -H "Accept: application/vnd.github+json" \
+  /repos/OWNER/REPO/collaborators/USERNAME \
+  -f permission="maintain"
+```
+
+par exemple :
+
+```bash
+gh api \
+  -X PUT \
+  -H "Accept: application/vnd.github+json" \
+  /repos/RogerBytes-Softworks/TPA/collaborators/YassineDev01 \
+  -f permission="maintain"
+```
+
+Read
+Recommended for non-code contributors who want to view or discuss your project.
+
+Triage
+Recommended for contributors who need to manage issues and pull requests without write access.
+
+Write
+Recommended for contributors who actively push to your project.
+
+Maintain
+Recommended for project managers who need to manage the repository without access to sensitive or destructive actions.
+
+Admin
+Recommended for people who need full access to the project, including sensitive and destructive actions like managing security or deleting a repository.
 
 ---
 
