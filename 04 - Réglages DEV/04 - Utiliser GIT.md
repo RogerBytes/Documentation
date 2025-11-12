@@ -250,6 +250,14 @@ git remote -v
 
 ```
 
+### Lister les branches distantes
+
+```bash
+git branch -r
+
+```
+
+
 ### Réinitialiser le remote
 
 Si vous vous trompez dans le nom d'org de dépôt (ou autre) faites :
