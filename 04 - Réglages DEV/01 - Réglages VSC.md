@@ -154,24 +154,19 @@ Pour afficher masque la barre principale des outils (la barre d'activité)
 Depuis le market place :
 [https://marketplace.visualstudio.com/VSCode](https://marketplace.visualstudio.com/VSCode)
 
-il faut utiliser le script `vsix-dl.sh`, comme ceci :
+il faut utiliser le script `vsix-dl` (installé avec [Mintage](https://github.com/RogerBytes/Mintage)), comme ceci :
 
 ```bash
-./vsix-dl.sh #publisher#.#package#
+vsix-dl #publisher#.#package#
 ```
 
 Par exemple pour [Console Ninja](https://marketplace.visualstudio.com/items?itemName=WallabyJs.console-ninja)
 
 ```bash
-./vsix-dl.sh WallabyJs.console-ninja
+vsix-dl WallabyJs.console-ninja
 ```
 
-Lancez ce lien, il télécharge le fichier `Microsoft.VisualStudio.Services.VSIXPackage`, renommez l'extension `.VSIXPackage` en `.vsix`.
-
-Dans la section Extensions, cliquer sur "..." (plus d'options) en haut à droite.
-Sélectionner "Installer à partir de VSIX" dans le menu déroulant.
-Navigue jusqu'à l'emplacement du fichier VSIX que tu souhaites installer et sélectionne-le.
-L'extension sera installée et prête à être utilisée dans Codium.
+L'extension sera téléchargée et installée automatiquement, vous pouvez ensuite supprimer le fichier vsix.
 
 Réglage du spell checker, en bas quand il souligne plein de truc cliquer sur "spell" dans la barre d'état et dans le dock "workspace" "user" "ficher" etc cocher "anglais" et "français" ainsi que "lorem"
 
