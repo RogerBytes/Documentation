@@ -212,7 +212,6 @@ Cette commande permet de voir le référentiels des associations du depot local 
 
 ```bash
 git remote -v
-
 ```
 
 ### Lister les branches distantes
@@ -236,8 +235,35 @@ git remote remove origin
 # et recommencez le remote add suivi du push --set-upstream
 ```
 
-## Ouvrir une page github pour héberger une page web
+## Ouvrir une page github en CLI
 
+Attention, ceci semble ne plus fonctionner, github à modifier son api, il semble désormais obligatoire d'activer github page depuis l'interface graphique.
+
+En ligne de commande :
+
+```
+ORG="RogerBytes"
+REPO="Portfolio"
+BRANCH="master"
+gh api \
+  --method POST \
+  -H "Accept: application/vnd.github+json" \
+  "/repos/$ORG/$REPO/pages" \
+  -f "build_type=workflow" \
+  -f "source.branch=$BRANCH" \
+  -f "source.path=/"
+```
+
+Il suffit de modifier les valeurs `$ORG` `$REPO` et `$BRANCH`
+
+Ensuite l'on peut récupérer le lien
+
+```
+gh api "/repos/$ORG/$REPO/pages" -q '.html_url'
+```
+
+
+## Ouvrir une page github via l'interface graphique
 Allez sur la page :
 [https://github.com/#NomUser#ouNomOrg/#NomRepo/settings/pages](https://github.com/#NomUser#ouNomOrg/#NomRepo/settings/pages)
 Et modifiez `#NomUser#ouNomOrg` et `#NomRepo` pour correspondre à chez vous.
@@ -245,7 +271,7 @@ Et modifiez `#NomUser#ouNomOrg` et `#NomRepo` pour correspondre à chez vous.
 -> Par exemple pour mon repo "testjeuweb" se trouvant dans mon org "RogerBytes-Softworks"
 [https://github.com/RogerBytes-Softworks/testjeuweb/settings/pages](https://github.com/RogerBytes-Softworks/testjeuweb/settings/pages)
 
-Sous branche, cliquez sur `None` choisissez laquelle contient votre html (chez moi sur master).
+Sous `Source` choisissez `branche`, cliquez sur `None`, puis `Save`, puis choisissez laquelle contient votre html (chez moi sur master).
 Puis cliquez sur `Save`
 
 Au refresh de page le lien n’apparaît pas immédiatement
