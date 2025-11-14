@@ -1,46 +1,6 @@
-# Installer Docker
+# Utilisation d'un compte Docker
 
-Docker est une plateforme logicielle qui permet de créer, déployer et exécuter des applications dans des conteneurs légers et isolés, offrant ainsi une meilleure portabilité et facilitant la gestion des environnements de développement et de production. Les conteneurs Docker encapsulent tout ce dont une application a besoin pour fonctionner, y compris le code, les dépendances et les configurations, ce qui simplifie le déploiement et permet d'obtenir une cohérence entre les différents environnements.
-
----
-
-## Installation
-
-### Installer Docker Engine
-
-Source depuis le site de docker [Doc de docker](https://docs.docker.com/engine/install/ubuntu/#install-using-the-repository)
-
-```bash
-sudo nala update
-sudo nala install -y ca-certificates curl
-sudo install -m 0755 -d /etc/apt/keyrings
-sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
-sudo chmod a+r /etc/apt/keyrings/docker.asc
-echo \
-  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
-  $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" | \
-  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-sudo nala update
-sudo nala install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin pass
-```
-
-### Installer Docker Desktop
-
-Source depuis le site de docker [Doc de docker](https://docs.docker.com/desktop/setup/install/linux/)
-
-```bash
-wget -O docker-desktop-amd64.deb "https://desktop.docker.com/linux/main/amd64/docker-desktop-amd64.deb?utm_source=docker&utm_medium=webreferral&utm_campaign=docs-driven-download-linux-amd64"
-sudo nala install -y ./docker-desktop-amd64.deb
-rm ./docker-desktop-amd64.deb
-```
-
-Voilà, Docker Desktop est installé, ainsi que docker engine (inclus dans le paquet)
-
----
-
-## Utilisation d'un compte Docker
-
-### Connexion aux services en ligne de docker
+## Connexion aux services en ligne de docker
 
 Commencez par faire un compte sur :
 [hub.docker.com](https://hub.docker.com/signup)  
@@ -54,7 +14,7 @@ En réalité Docker repose sur un gestionnaire de mot de passe qui s'appelle "pa
 Ce qui suit est basé sur la page suivante :
 [doc de docker](https://docs.docker.com/desktop/get-started/#credentials-management-for-linux-users)
 
-#### Créer une clef gpg
+### Créer une clef gpg
 
 Commencez par générer une clef gpg à l'aide de la commande :
 
@@ -100,7 +60,7 @@ gpg --list-keys
 
 Si jamais vou avez effacé le dossier ça générera les fichiers requis pour pouvoir générer une clef normalement
 
-#### Initialiser pass
+### Initialiser pass
 
 ```bash
 pass init <your_generated_gpg-id_public_key>
@@ -118,7 +78,7 @@ Password store initialized for 5BB54DF1XXXXXXXXF87XXXXXXXXXXXXXX945A
 
 Maintenant il ne vous reste plus qu'à cliquer sur le bouton "Sign in", il vous redirigera sur le site de docker pour vous connecter / déconnecter.
 
-### Diminuer les demandes de mdm de gnupg
+## Diminuer les demandes de mdm de gnupg
 
 Pour lui mettre une durée de 8 heures.
 
@@ -133,3 +93,4 @@ Sinon pour éviter d'attendre un reboot pour appliquer les changements :
 ```bash
 gpgconf --kill gpg-agent && gpgconf --launch gpg-agent
 ```
+
