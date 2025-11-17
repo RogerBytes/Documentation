@@ -5,7 +5,7 @@
 ## Prérequis
 
 - 64 bit et virtualisation CPU
-- KVM virtualisation 
+- KVM virtualisation
 - QEMU >= 5.2 `qemu-system-x86_64 --version`
 - systemd `systemctl --version`
 - 4 GB de Ram
@@ -22,7 +22,6 @@ Puis on vérifie
 lsmod | grep kvm
 ```
 
-
 Il doit retourner
 
 ```output
@@ -38,7 +37,6 @@ Puis ajouter l'utilisateur au groupe
 sudo usermod -aG kvm $USER
 ```
 
-
 Se déco/reco à sa session, puis vérifier
 
 ```bash
@@ -52,7 +50,6 @@ groups
 ```bash
 sudo nala install -y gnome-terminal
 ```
-
 
 ## Ajouter le repo officiel
 
@@ -75,7 +72,6 @@ EOF
 sudo apt update
 ```
 
-
 ## Installation
 
 ```bash
@@ -95,8 +91,6 @@ S'il n'est pas en vert "active", il faut :
 ```bash
 sudo systemctl start docker
 ```
-
-
 
 Puis on le teste avec
 
