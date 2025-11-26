@@ -241,7 +241,7 @@ Attention, ceci semble ne plus fonctionner, github à modifier son api, il sembl
 
 En ligne de commande :
 
-```
+```bash
 ORG="RogerBytes"
 REPO="Portfolio"
 BRANCH="master"
@@ -258,12 +258,12 @@ Il suffit de modifier les valeurs `$ORG` `$REPO` et `$BRANCH`
 
 Ensuite l'on peut récupérer le lien
 
-```
+```bash
 gh api "/repos/$ORG/$REPO/pages" -q '.html_url'
 ```
 
-
 ## Ouvrir une page github via l'interface graphique
+
 Allez sur la page :
 [https://github.com/#NomUser#ouNomOrg/#NomRepo/settings/pages](https://github.com/#NomUser#ouNomOrg/#NomRepo/settings/pages)
 Et modifiez `#NomUser#ouNomOrg` et `#NomRepo` pour correspondre à chez vous.
