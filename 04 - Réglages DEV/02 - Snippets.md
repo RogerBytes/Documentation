@@ -63,7 +63,7 @@ Permet de faire un template de script vierge avec des catégories, on appelle le
   "Template classe javascript":{
     "prefix": "classInit",
     "body":[
-      "\"use strict\";\n"
+      "\"use strict\";"
       "\/\/ Coloration des commentaires avec l'extension vsc \"Better Comments\"//\n\n\n"
       "\/\/?-------------  Imports de Modules  -----------------//\n\n\n"
       "\/\/?-------------  Déclaration de la Classe  ---------------//\n"
