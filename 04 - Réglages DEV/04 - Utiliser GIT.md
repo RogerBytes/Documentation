@@ -209,7 +209,7 @@ git switch #nom de branche#
 ### Sauter sur une branche distant encore non utilisée
 
 ```bash
-git switch -t origin/ma-branche
+git checkout -b nom-de-la-branche origin/nom-de-la-branche
 ```
 
 ### Voir le réglage du remote
