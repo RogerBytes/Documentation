@@ -206,6 +206,12 @@ git push --set-upstream origin #NomDeBranche
 git switch #nom de branche#
 ```
 
+### Sauter sur une branche distant encore non utilisée
+
+```bash
+git switch -t origin/ma-branche
+```
+
 ### Voir le réglage du remote
 
 Cette commande permet de voir le référentiels des associations du depot local vers un depot distant :
