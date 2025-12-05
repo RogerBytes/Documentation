@@ -4,31 +4,31 @@
 
 ### QEMU + KVM
 
-* Hyperviseur open-source ultra-performant, avec accélération matérielle via KVM (Kernel-based Virtual Machine).
-* Supporte quasiment tous les OS invités.
-* Très configurable, scripts, snapshots, passthrough GPU, etc.
-* Interface en ligne de commande, mais souvent utilisé avec un GUI comme **Virt-Manager**.
+- Hyperviseur open-source ultra-performant, avec accélération matérielle via KVM (Kernel-based Virtual Machine).
+- Supporte quasiment tous les OS invités.
+- Très configurable, scripts, snapshots, passthrough GPU, etc.
+- Interface en ligne de commande, mais souvent utilisé avec un GUI comme **Virt-Manager**.
 
 ### Virt-Manager
 
-* Interface graphique simple pour gérer QEMU/KVM.
+- Interface graphique simple pour gérer QEMU/KVM.
 
-* Permet de créer, configurer, démarrer des VM facilement.
+- Permet de créer, configurer, démarrer des VM facilement.
 
-* Performances proches du natif grâce à KVM.
+- Performances proches du natif grâce à KVM.
 
-* Support matériel complet (CPU, GPU passthrough, USB, réseau).
+- Support matériel complet (CPU, GPU passthrough, USB, réseau).
 
-* Stable et maintenu par la communauté Linux.
+- Stable et maintenu par la communauté Linux.
 
-* Moins gourmand que VirtualBox en ressources.
+- Moins gourmand que VirtualBox en ressources.
 
 ### Intêret par rapport à VirtualBox etc
 
-* Performances proches du natif grâce à KVM.
-* Support matériel complet (CPU, GPU passthrough, USB, réseau).
-* Stable et maintenu par la communauté Linux.
-* Moins gourmand que VirtualBox en ressources.
+- Performances proches du natif grâce à KVM.
+- Support matériel complet (CPU, GPU passthrough, USB, réseau).
+- Stable et maintenu par la communauté Linux.
+- Moins gourmand que VirtualBox en ressources.
 
 ## Dépendances
 
@@ -41,7 +41,7 @@ sudo nala install -y qemu-system libvirt-daemon-system libvirt-clients bridge-ut
 
 ### Ajouter sa session au groupe libvirt
 
-```
+```bash
 sudo usermod -aG libvirt $USER
 mkdir -p ~/Partage
 sudo chown nobody:users ~/Partage
@@ -63,11 +63,11 @@ Faire un redémmarage pour terminer l'installation.
 Après avoir téléchargé votre iso et l'avoir mis dans `~/Local/VMs/iso`
 
 1. Lancez Virt-Manager :
-   
+
    ```bash
    virt-manager
    ```
-   
+
    ou recherchez "Gestionnaire de machines virtuelles" dans le menu.
 
 2. Cliquez sur **Créer une nouvelle machine virtuelle**.
@@ -78,12 +78,12 @@ Après avoir téléchargé votre iso et l'avoir mis dans `~/Local/VMs/iso`
 
 5. Cochez **Détecter automatiquement depuis la source/média d'installation** (ou choisissez manuellement Windows 10 si Tiny10 n'est pas reconnu).
 
-6. Allouez la **RAM** (entre 25% et 50% de votre RAM) et le **nombre de cœurs CPU** ((entre 25% et 50% de vos CPU), s'il y a une demande de permission, cochez `Ne plus faire de demandes sur ces dossiers`  et cliquez sur `Oui`.
+6. Allouez la **RAM** (entre 25% et 50% de votre RAM) et le **nombre de cœurs CPU** ((entre 25% et 50% de vos CPU), s'il y a une demande de permission, cochez `Ne plus faire de demandes sur ces dossiers` et cliquez sur `Oui`.
 
 7. Créez un **disque virtuel**, vous pouvez augmenter la taille au besoin.
 
 8. Finalisez la configuration :
-   
+
    - Donnez un nom à la VM.
    - Si souhaité, activez **l’interface réseau en mode NAT** (recommandé pour accès Internet).
 
@@ -92,7 +92,7 @@ Après avoir téléchargé votre iso et l'avoir mis dans `~/Local/VMs/iso`
 ---
 
 Pour afficher les options de votre machine, il faut aller dans `Afficher/Détail`, `Afficher/Console` permet d'afficher l'écran.
-Vérifier les options de RAM et que le CD d'ISO est bien coché au démarrage en cas de soucis lors de l'installation. 
+Vérifier les options de RAM et que le CD d'ISO est bien coché au démarrage en cas de soucis lors de l'installation.
 
 Pour ajouter le dossier partagé
 
@@ -124,21 +124,27 @@ Puis ajouter un mdp à son serveur samba avec
 sudo smbpasswd -a $USER
 ```
 
+il retourne `192.168.122.1` dans mon cas, donc
 
+Dans la machine windows :
 
-il retourne `192.168.122.1` dans mon cas, donc 
+- Ouvre l’explorateur de fichiers.
+- Clique sur **“Ce PC”** → **“Connecter un lecteur réseau”**.
+- Dossier :
 
-Dans la machine windows : 
- * Ouvre l’explorateur de fichiers.
- * Clique sur **“Ce PC”** → **“Connecter un lecteur réseau”**.
- * Dossier :
-
-```
+```text
 \\192.168.122.1\Partage
 ```
- * Coche **“Se reconnecter à la connexion”**.
- * Quand demandé : entre ton **nom d’utilisateur Linux** et ton **mot de passe Samba**.
 
+- Coche **“Se reconnecter à la connexion”**.
+- Quand demandé : entre ton **nom d’utilisateur Linux** et ton **mot de passe Samba**.
+
+Il est possible que le pare-feu bloque il faut donc fait
+
+```bash
+sudo ufw allow 137,138,139,445/tcp
+sudo ufw reload
+```
 
 ### Linux (Nautilus, Dolphin, etc.)
 
@@ -197,9 +203,3 @@ Terminal=false
 Categories=Utility;
 EOF
 ```
-
-
-
-
-
-
