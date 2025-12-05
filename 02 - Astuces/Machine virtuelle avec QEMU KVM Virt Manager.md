@@ -50,7 +50,7 @@ sudo chmod 2775 ~/Partage
 
 ### Activer libvirt et virtlogd
 
-```
+```bash
 sudo systemctl enable --now libvirtd
 sudo systemctl enable --now virtlogd
 newgrp libvirt
@@ -168,7 +168,7 @@ sudo ufw reload
 
 ## Créer un lanceur pour une VM
 
-```
+```bash
 sudo virsh list --all
 ```
 
@@ -177,13 +177,13 @@ Trouver le nom de la machine dans la liste, par exemple `Windows10` chez moi.
 et lancez avec `virsh start NOM_VM ; virt-manager --connect qemu:///system --show-domain-console NOM_VM ; virsh shutdown NOM_VM`
 donc pour moi, pour ma vm "Windows10"
 
-```
+```bash
 virsh start Windows10 ; virt-manager --connect qemu:///system --show-domain-console Windows10
 ```
 
 Ensuite je créé un bin :
 
-```
+```bash
 sudo tee /usr/local/bin/lancer-windows10.sh > /dev/null <<'EOF'
 #!/bin/bash
 virsh start Windows10
