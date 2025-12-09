@@ -188,6 +188,14 @@ git push origin --delete nom-de-la-branche
 # Si la branche à supprimer s'appelle "harry"
 ```
 
+### Nettoyer les connexions de branches locales vers distantes
+
+A utiliser après avoir supprimé une branche distante
+
+```bash
+git fetch --prune
+```
+
 ### Renommer une branche
 
 ```bash
@@ -209,7 +217,7 @@ git switch #nom de branche#
 ### Sauter sur une branche distant encore non utilisée
 
 ```bash
-git checkout -b nom-de-la-branche origin/nom-de-la-branche
+git checkout origin/nom-de-la-branche
 ```
 
 ### Voir le réglage du remote
