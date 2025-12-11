@@ -66,3 +66,12 @@ Je conseille un petit reboot qui ne mange pas de pain
 ```
 sudo reboot now
 ```
+
+
+## Retirer la sources 32bit
+
+```bash
+echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu noble stable" | sudo tee /etc/apt/sources.list.d/docker.list
+sudo mv /etc/apt/sources.list.d/docker.sources /etc/apt/sources.list.d/docker.sources.disabled
+sudo apt update
+```

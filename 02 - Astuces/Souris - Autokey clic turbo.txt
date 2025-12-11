@@ -5,8 +5,8 @@ https://forums.linuxmint.com/viewtopic.php?t=294639
 Installer autokey
 sudo nala install -y autokey-gtk
 
-1. Créer un dossier pour nos scripts perso, perso je créé un dossier "Scripts AutoKey" dans mon dossier ~/Documents/Logiciel/ :
-mkdir -p "$HOME/Documents/Logiciel/Scripts AutoKey"
+1. Créer un dossier pour nos scripts perso, perso je créé un dossier "Scripts AutoKey" dans mon dossier ~/Documents/Médias/Logiciel/Scripts AutoKey/ :
+mkdir -p "$HOME/Documents/Médias/Logiciel/Scripts AutoKey"
 
 
 Dans AutoKey maintenant :
