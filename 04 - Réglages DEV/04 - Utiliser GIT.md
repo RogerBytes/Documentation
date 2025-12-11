@@ -61,14 +61,16 @@ git add --all && git commit -m "First commit"
 Le premier push est différent :
 
 ```bash
-git push --set-upstream origin master
+git push -u origin master
 ```
 
 Si vous avez besoin de forcer le push local vers le distant (pour un repo existant ayant eu un conflit dans l'historique par exemple)
 
 ```bash
-git push --force --set-upstream origin master
+git push -u origin master
 ```
+
+Note : `-u` et le raccourci de `--force --set-upstream`.
 
 Ensuite on utilise les commandes normales (`git push` sans rien d'autre derrière)
 
@@ -177,7 +179,7 @@ git branch #nouveau nom#
 ### Supprimer une branche locale
 
 ```bash
-git branch -d harry
+git branch -D harry
 # Si la branche à supprimer s'appelle "harry"
 ```
 
@@ -205,7 +207,7 @@ git branch -M #nouveau nom#
 ### Lier ma branche au dépôt distant (créé la branche distante)
 
 ```bash
-git push --set-upstream origin #NomDeBranche
+git push -u origin #NomDeBranche
 ```
 
 ### Changer de branche
@@ -214,10 +216,11 @@ git push --set-upstream origin #NomDeBranche
 git switch #nom de branche#
 ```
 
-### Sauter sur une branche distant encore non utilisée
+### créer une branche locale et la distante associée
 
 ```bash
-git checkout -b nom-de-la-branche origin/nom-de-la-branche
+git checkout -b nom-de-la-branche
+git push -u origin nom-de-la-branche
 ```
 
 ### Voir le réglage du remote
