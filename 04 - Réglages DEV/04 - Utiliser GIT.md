@@ -202,7 +202,7 @@ git fetch --prune
 git branch -M #nouveau nom#
 ```
 
-### Lier ma branche au dépôt distant
+### Lier ma branche au dépôt distant (créé la branche distante)
 
 ```bash
 git push --set-upstream origin #NomDeBranche
@@ -217,7 +217,7 @@ git switch #nom de branche#
 ### Sauter sur une branche distant encore non utilisée
 
 ```bash
-git checkout origin/nom-de-la-branche
+git checkout -b nom-de-la-branche origin/nom-de-la-branche
 ```
 
 ### Voir le réglage du remote
