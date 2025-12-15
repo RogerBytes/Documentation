@@ -129,6 +129,15 @@ Dans le fichier settings.json, remplacez le contenu :
   },
   "markdownlint.config": {
     "MD033": false
+  },
+  "[markdown]": {
+    "editor.quickSuggestions": {
+      "other": true,
+      "comments": true,
+      "strings": true
+    },
+    "editor.snippetSuggestions": "top",
+    "editor.tabCompletion": "on"
   }
 }
 ```

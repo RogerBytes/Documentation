@@ -248,6 +248,22 @@ Snippet pour charger ma lib pour ma fonction de chemin path()
 
 ```
 
+## Snippet MarkDown
+
+Snippet pour faire un bloc de code avec les triple backtick.
+
+````json
+  "Code block with language": {
+    "prefix": "codeblock",
+    "body": [
+      "```$1",
+      "$0",
+      "```"
+    ],
+    "description": "Insère un bloc de code avec le langage à saisir"
+  }
+````
+
 ---
 
 ## Auteurs
