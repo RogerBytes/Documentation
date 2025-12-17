@@ -339,6 +339,67 @@ gh api \
   -f permission="maintain"
 ```
 
+## Récupérer toutes les branches distantes
+
+Pour récupérer toutes les branches, s'il n'y a qu'un seul remote et idéalement pour un repo perso (s'il y a 500 branches il va tous les télécharger)
+
+```bash
+git fetch --all
+
+current_branch=$(git branch --show-current)
+
+for remote in $(git branch -r | grep -v 'HEAD'); do
+  [[ "$remote" != */* ]] && continue
+  local_branch="${remote#*/}"
+  [[ "$local_branch" == "HEAD" ]] && continue
+  if ! git show-ref --verify --quiet "refs/heads/$local_branch"; then
+    echo "Création de la branche locale : $local_branch"
+    git checkout -b "$local_branch" "$remote"
+  fi
+done
+
+for branch in $(git for-each-ref --format='%(refname:short)' refs/heads/); do
+  [[ "$branch" == origin* ]] && continue
+  upstream=$(git for-each-ref --format='%(upstream:short)' "refs/heads/$branch")
+  [[ -z "$upstream" ]] && continue
+  echo "Mise à jour de la branche : $branch"
+  git checkout "$branch"
+  git pull
+done
+
+git checkout "$current_branch"
+```
+
+## Pull toutes les branches du repo
+
+Pas très propre, car c'est limité à dessein...
+
+```bash
+git fetch --all
+
+current_branch=$(git branch --show-current)
+
+local_branches=($(git for-each-ref \
+  --format='%(refname:short)' \
+  refs/heads))
+
+for branch in "${local_branches[@]}"; do
+  upstream=$(git for-each-ref \
+    --format='%(upstream:short)' \
+    "refs/heads/$branch")
+
+  if [ -n "$upstream" ]; then
+    echo "Mise à jour de la branche : $branch"
+    git checkout "$branch"
+    git pull
+  else
+    echo "Branche ignorée (pas de remote) : $branch"
+  fi
+done
+
+git checkout "$current_branch"
+```
+
 Read
 Recommended for non-code contributors who want to view or discuss your project.
 
