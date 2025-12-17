@@ -339,7 +339,7 @@ gh api \
   -f permission="maintain"
 ```
 
-## Récupérer toutes les branches distantes
+## Récupérer toutes les branches et les pull distantes incluses
 
 Pour récupérer toutes les branches, s'il n'y a qu'un seul remote et idéalement pour un repo perso (s'il y a 500 branches il va tous les télécharger)
 
@@ -370,35 +370,6 @@ done
 git checkout "$current_branch"
 ```
 
-## Pull toutes les branches du repo
-
-Pas très propre, car c'est limité à dessein...
-
-```bash
-git fetch --all
-
-current_branch=$(git branch --show-current)
-
-local_branches=($(git for-each-ref \
-  --format='%(refname:short)' \
-  refs/heads))
-
-for branch in "${local_branches[@]}"; do
-  upstream=$(git for-each-ref \
-    --format='%(upstream:short)' \
-    "refs/heads/$branch")
-
-  if [ -n "$upstream" ]; then
-    echo "Mise à jour de la branche : $branch"
-    git checkout "$branch"
-    git pull
-  else
-    echo "Branche ignorée (pas de remote) : $branch"
-  fi
-done
-
-git checkout "$current_branch"
-```
 
 Read
 Recommended for non-code contributors who want to view or discuss your project.
