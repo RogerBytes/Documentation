@@ -219,8 +219,9 @@ git switch #nom de branche#
 ### créer une branche locale et la distante associée
 
 ```bash
-git checkout -b nom-de-la-branche
-git push -u origin nom-de-la-branche
+BRANCH="nom-de-la-branche"
+git checkout -b "$BRANCH"
+git push -u origin "$BRANCH"
 ```
 
 ### Voir le réglage du remote
