@@ -242,6 +242,14 @@ D'autres trucs (toujours en rapport avec les boite des suggestions et les autoco
 "editor.wordBasedSuggestions": false,
 ```
 
+## Durée de session SSH
+
+Par défaut VSC demande régulièrement à retaper le passphrase de la clef ssh, avec ce qui suit le cache de session dure plus longtemps?
+
+```bash
+echo -e "default-cache-ttl 28800\nmax-cache-ttl 28800\nenable-ssh-support" > ~/.gnupg/gpg-agent.conf && gpgconf --kill gpg-agent
+```
+
 ## Auteurs
 
 - [Harry RICHMOND](https://github.com/RogerBytes)
