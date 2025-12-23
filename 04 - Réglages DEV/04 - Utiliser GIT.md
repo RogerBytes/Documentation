@@ -27,17 +27,23 @@ git init
 
 ### Créer un dépôt distant
 
-Je créé un dépôt distant du même nom sur mon org de github
+Je créé un dépôt distant du même nom sur github
 
 ```bash
-gh repo create RogerBytes-Softworks/testGodot --public
+BRANCH="nom-de-la-branche"
+gh repo create "$BRANCH" --public
 ```
+
+Le nom de la branche, dans le cas d'une organisation doit être dans ce format `RogerBytes-Softworks/testGodot`
 
 ### Activer le remote
 
 ```bash
-git remote add origin git@github.com:RogerBytes-Softworks/testGodot.git
+ACCOUNT="RogerBytes"
+git remote add origin git@github.com:"$ACCOUNT/$BRANCH".git
 ```
+
+Pensez à bien mettre votre nom de compte github, vous n'aurez pas les droits sinon.
 
 ### Premier envoi
 
@@ -369,7 +375,6 @@ done
 
 git checkout "$current_branch"
 ```
-
 
 Read
 Recommended for non-code contributors who want to view or discuss your project.
