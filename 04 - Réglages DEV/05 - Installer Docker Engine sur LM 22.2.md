@@ -90,7 +90,7 @@ Architectures: amd64
 sudo nala install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 ```
 
-On donne les permissions à l'utilisateur actuel
+On donne les permissions à l'utilisateur actuel (en nous basant sur [la documentation "post-install" de Docker](https://docs.docker.com/engine/install/linux-postinstall/))
 
 ```bash
 sudo usermod -aG docker $USER
