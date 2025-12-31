@@ -1,6 +1,7 @@
 # Installer Docker Engine sur LM 22.2
 
-[Documentation d'installation de Docker](https://docs.docker.com/desktop/setup/install/linux/)
+[Documentation d'installation de Docker](https://docs.docker.com/desktop/setup/install/linux)
+[Documentation Post Install de Docker](https://docs.docker.com/engine/install/linux-postinstall)
 
 ## Prérequis
 
@@ -68,14 +69,47 @@ Suites: $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}")
 Components: stable
 Signed-By: /etc/apt/keyrings/docker.asc
 EOF
-
 sudo apt update
+```
+
+Chez moi il se plaint `N: Le fichier configuré « stable/binary-i386/Packages » ne sera pas pris en compte car le dépôt « https://download.docker.com/linux/ubuntu noble InRelease » ne prend pas en charge l'architecture « i386 »`, je spécifie l'architecture 64 dans la source.
+
+```bash
+sudo nano /etc/apt/sources.list.d/docker.sources
+```
+
+et j'ajoute la ligne
+
+```text
+Architectures: amd64
 ```
 
 ## Installation
 
 ```bash
 sudo nala install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+```
+
+Architectures: amd64
+
+## Droits d'accès à Docker
+
+On créé le groupe docker
+
+```bash
+sudo groupadd docker
+```
+
+Et on ajoute l'utilisateur courant
+
+```bash
+sudo usermod -aG docker $USER
+```
+
+Et on actualise
+
+```bash
+newgrp docker
 ```
 
 ### Vérification
@@ -95,7 +129,7 @@ sudo systemctl start docker
 Puis on le teste avec
 
 ```bash
-sudo docker run hello-world
+docker run hello-world
 ```
 
 Voilà, `docker-engine` est correctement installé !
