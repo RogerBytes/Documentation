@@ -72,7 +72,7 @@ EOF
 sudo apt update
 ```
 
-Chez moi il se plaint `N: Le fichier configuré « stable/binary-i386/Packages » ne sera pas pris en compte car le dépôt « https://download.docker.com/linux/ubuntu noble InRelease » ne prend pas en charge l'architecture « i386 »`, je spécifie l'architecture 64 dans la source.
+Chez moi, `apt update` se plaint de l’architecture i386. Docker ne supportant plus i386 sur Ubuntu, je spécifie uniquement l’architecture amd64 dans la source.
 
 ```bash
 sudo nano /etc/apt/sources.list.d/docker.sources
@@ -111,6 +111,8 @@ Et on actualise
 ```bash
 newgrp docker
 ```
+
+Il faut se déconnecter et se reconnecter pour activer ses droits d'accès
 
 ### Vérification
 
