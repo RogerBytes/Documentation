@@ -90,29 +90,13 @@ Architectures: amd64
 sudo nala install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 ```
 
-Architectures: amd64
-
-## Droits d'accès à Docker
-
-On créé le groupe docker
-
-```bash
-sudo groupadd docker
-```
-
-Et on ajoute l'utilisateur courant
+On donne les permissions à l'utilisateur actuel
 
 ```bash
 sudo usermod -aG docker $USER
 ```
 
-Et on actualise
-
-```bash
-newgrp docker
-```
-
-Il faut se déconnecter et se reconnecter pour activer ses droits d'accès
+Il ne reste qu'à se reconnecter, pour que l'utilisateur soit actif.
 
 ### Vérification
 
