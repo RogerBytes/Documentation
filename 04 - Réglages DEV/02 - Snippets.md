@@ -250,6 +250,8 @@ Snippet pour charger ma lib pour ma fonction de chemin path()
 
 ## Snippet MarkDown
 
+### Codebloc
+
 Snippet pour faire un bloc de code avec les triple backtick.
 
 ````json
@@ -263,6 +265,61 @@ Snippet pour faire un bloc de code avec les triple backtick.
     "description": "Insère un bloc de code avec le langage à saisir"
   }
 ````
+
+### Style perso
+
+Importe le style nécessaire à markdown pour mes spoiler.
+
+```json
+  "Spoiler style perso": {
+    "prefix": "style",
+    "body": [
+      "<style>",
+      ".spoiler {",
+      "  border-left: 4px solid #1abc9c;",
+      "  border-bottom-left-radius:3px;",
+      "  padding-left:10px;",
+      "  padding-top:15px;",
+      "  margin-top:-10px;",
+      "  margin-bottom:15px;",
+      "}",
+      ".button {",
+      "  cursor:pointer;",
+      "  padding:5px 10px;",
+      "  background-color:#3498db;",
+      "  color:white;",
+      "  border-radius:3px;",
+      "  margin-bottom:5px;",
+      "  display:inline-block;",
+      "  transition: background-color 0.2s;",
+      "}",
+      ".button:hover {",
+      "  background-color: #217dbb;",
+      "}",
+      "details[open] .button {",
+      "  background-color: #1abc9c;",
+      "}",
+      "</style>"
+    ],
+    "description": "Style perso pour spoiler Markdown"
+  }
+```
+
+### Spoiler
+
+Bloc spoiler
+
+```json
+  "Spoiler collapsible contenu": {
+    "prefix": "spoiler",
+    "body": [
+      "<details><summary class=\"button\">Spoiler</summary><div class=\"spoiler\">",
+      "$0",
+      "</div></details>"
+    ],
+    "description": "Insère un spoiler collapsible avec curseur sur le contenu"
+  }
+```
 
 ---
 
