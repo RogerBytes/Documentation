@@ -289,6 +289,7 @@ Bloc spoiler
     "prefix": "spoiler",
     "body": [
       "<details><summary class=\"button\">Spoiler</summary><div class=\"spoiler\">",
+      "",
       "$0",
       "</div></details>"
     ],
