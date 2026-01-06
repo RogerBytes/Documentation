@@ -14,21 +14,21 @@ Vous aurez à copier les blocs de code de cette doc au sein des objets, entre le
 Permet de faire un template de script vierge avec des catégories, on appelle le snippet avec `init`
 
 ```json
-	"Template javascript":{
-    "prefix": "init",
-    "body":[
-      "\"use strict\";"
-      "\/\/ Coloration des commentaires avec l'extension vsc \"Better Comments\"//\n\n\n"
-      "\/\/?-------------  Déclaration des Imports  -----------------//\n\n\n"
-      "\/\/*-------------  Déclaration des Variables  ---------------//\n\n\n"
-      "\/\/!-------------  Déclaration des Events  ------------------//\n\n\n"
-      "\/\/!-------------  Instructions  ----------------------------//\n\n\n"
-      "\/\/?-------------  Déclaration des Fonctions  ---------------//\n\n\n"
-      "\/\/todo----------  TODO  ------------------------------------//\n\n\n"
-      "\/\/*-------------  Zone Test  -------------------------------//\n\n\n"
-      "\/\/*-------------  Fin  -------------------------------------//\n\n\n"
-    ]
-  },
+"Template javascript":{
+  "prefix": "init",
+  "body":[
+    "\"use strict\";"
+    "\/\/ Coloration des commentaires avec l'extension vsc \"Better Comments\"//\n\n\n"
+    "\/\/?-------------  Déclaration des Imports  -----------------//\n\n\n"
+    "\/\/*-------------  Déclaration des Variables  ---------------//\n\n\n"
+    "\/\/!-------------  Déclaration des Events  ------------------//\n\n\n"
+    "\/\/!-------------  Instructions  ----------------------------//\n\n\n"
+    "\/\/?-------------  Déclaration des Fonctions  ---------------//\n\n\n"
+    "\/\/todo----------  TODO  ------------------------------------//\n\n\n"
+    "\/\/*-------------  Zone Test  -------------------------------//\n\n\n"
+    "\/\/*-------------  Fin  -------------------------------------//\n\n\n"
+  ]
+},
 ```
 
 ### JS - Strict
@@ -60,28 +60,28 @@ Permet de générer un "Query Selector", on appelle le snippet avec `selector`
 Permet de faire un template de script vierge avec des catégories, on appelle le snippet avec `initClass`
 
 ```json
-  "Template classe javascript":{
-    "prefix": "classInit",
-    "body":[
-      "\"use strict\";"
-      "\/\/ Coloration des commentaires avec l'extension vsc \"Better Comments\"//\n\n\n"
-      "\/\/?-------------  Imports de Modules  -----------------//\n\n\n"
-      "\/\/?-------------  Déclaration de la Classe  ---------------//\n"
-      "export default class ${1:MaClasse} {\n"
-      "  \/\/?-------------  Déclaration de Propriétés  ---------------//\n\n"
-      "  constructor(${2:param1}, ${3:param2}) {\n"
-      "    \/\/*-------------  Initialisation de Propriétés  -------------//\n"
-      "    this.${4:prop1} = ${2:param1}"
-      "    this.${5:prop2} = \"exemple\"\n"
-      "  }\n"
-      "  \/\/?-------------  Déclaration de Méthodes ------------------//"
-      "  \/\/!-------------  Déclaration des Events  ------------------//\n\n\n"
-      "  \/\/?-------------  Déclaration de Méthodes auxiliaires ------//\n\n\n"
-      "  \/\/todo----------  TODO  ------------------------------------//\n\n\n"
-      "  \/\/*-------------  Zone Test  -------------------------------//\n\n\n}\n"
-      "\/\/*-------------  Fin  -------------------------------------//\n\n"
-    ]
-  }
+"Template classe javascript":{
+  "prefix": "classInit",
+  "body":[
+    "\"use strict\";"
+    "\/\/ Coloration des commentaires avec l'extension vsc \"Better Comments\"//\n\n\n"
+    "\/\/?-------------  Imports de Modules  -----------------//\n\n\n"
+    "\/\/?-------------  Déclaration de la Classe  ---------------//\n"
+    "export default class ${1:MaClasse} {\n"
+    "  \/\/?-------------  Déclaration de Propriétés  ---------------//\n\n"
+    "  constructor(${2:param1}, ${3:param2}) {\n"
+    "    \/\/*-------------  Initialisation de Propriétés  -------------//\n"
+    "    this.${4:prop1} = ${2:param1}"
+    "    this.${5:prop2} = \"exemple\"\n"
+    "  }\n"
+    "  \/\/?-------------  Déclaration de Méthodes ------------------//"
+    "  \/\/!-------------  Déclaration des Events  ------------------//\n\n\n"
+    "  \/\/?-------------  Déclaration de Méthodes auxiliaires ------//\n\n\n"
+    "  \/\/todo----------  TODO  ------------------------------------//\n\n\n"
+    "  \/\/*-------------  Zone Test  -------------------------------//\n\n\n}\n"
+    "\/\/*-------------  Fin  -------------------------------------//\n\n"
+  ]
+}
 ```
 
 ---
@@ -255,15 +255,15 @@ Snippet pour charger ma lib pour ma fonction de chemin path()
 Snippet pour faire un bloc de code avec les triple backtick.
 
 ````json
-  "Code block with language": {
-    "prefix": "codeblock",
-    "body": [
-      "```$1",
-      "$0",
-      "```"
-    ],
-    "description": "Insère un bloc de code avec le langage à saisir"
-  }
+"Code block with language": {
+  "prefix": "codeblock",
+  "body": [
+    "```$1",
+    "$0",
+    "```"
+  ],
+  "description": "Insère un bloc de code avec le langage à saisir"
+}
 ````
 
 ### Style perso
@@ -271,13 +271,13 @@ Snippet pour faire un bloc de code avec les triple backtick.
 Importe le style nécessaire à markdown pour mes spoiler.
 
 ```json
-  "Spoiler style perso": {
-    "prefix": "style",
-    "body": [
-      "<style>.spoiler{border-left:4px solid #1abc9c;border-bottom-left-radius:3px;padding-left:10px;padding-top:15px;margin-top:-10px;margin-bottom:15px}.button{cursor:pointer;padding:5px 10px;background-color:#3498db;color:white;border-radius:3px;margin-bottom:5px;display:inline-block;transition:background-color 0.2s}.button:hover{background-color:#217dbb}details[open] .button{background-color:#1abc9c}</style>"
-    ],
-    "description": "Insère ton style perso pour spoiler Markdown sur une ligne"
-  },
+"Spoiler style perso": {
+  "prefix": "style",
+  "body": [
+    "<style>.spoiler{border-left:4px solid #1abc9c;border-bottom-left-radius:3px;padding-left:10px;padding-top:15px;margin-top:-10px;margin-bottom:15px}.button{cursor:pointer;padding:5px 10px;background-color:#3498db;color:white;border-radius:3px;margin-bottom:5px;display:inline-block;transition:background-color 0.2s}.button:hover{background-color:#217dbb}details[open] .button{background-color:#1abc9c}</style>"
+  ],
+  "description": "Insère ton style perso pour spoiler Markdown sur une ligne"
+},
 ```
 
 ### Spoiler
@@ -285,16 +285,16 @@ Importe le style nécessaire à markdown pour mes spoiler.
 Bloc spoiler
 
 ```json
-  "Spoiler collapsible contenu": {
-    "prefix": "spoiler",
-    "body": [
-      "<details><summary class=\"button\">Spoiler</summary><div class=\"spoiler\">",
-      "",
-      "$0",
-      "</div></details>"
-    ],
-    "description": "Insère un spoiler collapsible avec curseur sur le contenu"
-  }
+"Spoiler collapsible contenu": {
+  "prefix": "spoiler",
+  "body": [
+    "<details><summary class=\"button\">Spoiler</summary><div class=\"spoiler\">",
+    "",
+    "$0",
+    "</div></details>"
+  ],
+  "description": "Insère un spoiler collapsible avec curseur sur le contenu"
+}
 ```
 
 ---
