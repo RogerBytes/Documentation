@@ -310,8 +310,24 @@ Et choisissez le language `markdown`
 }
 ```
 
+### Snipper signature
+
+```md
+  "Insert Author Block": {
+    "prefix": "yauthorblock",
+    "body": [
+      "## Auteur",
+      "",
+      "[<img src=\"https://github.com/RogerBytes.png\" width=\"40\" height=\"40\" style=\"border-radius:50%;\" alt=\"RogerBytes' avatar\">](https://github.com/RogerBytes)  ",
+      "[**RogerBytes (Harry Richmond)**](https://github.com/RogerBytes)"
+    ],
+    "description": "Insère un bloc auteur avec avatar et nom cliquable"
+  }
+```
+
 ---
 
-## Auteurs
+## Auteur
 
-- [Harry RICHMOND](https://github.com/RogerBytes)
+[<img src="https://github.com/RogerBytes.png" width="40" height="40" style="border-radius:50%;" alt="RogerBytes' avatar">](https://github.com/RogerBytes)  
+[**RogerBytes (Harry Richmond)**](https://github.com/RogerBytes)
