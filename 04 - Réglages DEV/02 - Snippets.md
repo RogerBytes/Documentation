@@ -320,6 +320,21 @@ Et choisissez le language `markdown`
 }
 ```
 
+### Snipper intro
+
+```md
+  "Intro": {
+    "prefix": "xintro",
+    "body": [
+      "<table><tr><td>",
+      "",
+      "$1",
+      "</td></tr></table>"
+    ],
+    "description": "Insère un bloc d'intro"
+  },
+```
+
 ---
 
 ## Auteur
