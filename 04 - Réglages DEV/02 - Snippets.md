@@ -254,9 +254,9 @@ Snippet pour charger ma lib pour ma fonction de chemin path()
 
 Snippet pour faire un bloc de code avec les triple backtick.
 
-````json
+```json
 "Code block with language": {
-  "prefix": "codeblock",
+  "prefix": "ycodeblock",
   "body": [
     "```$1",
     "$0",
@@ -264,7 +264,7 @@ Snippet pour faire un bloc de code avec les triple backtick.
   ],
   "description": "Insère un bloc de code avec le langage à saisir"
 }
-````
+```
 
 ### Style perso
 
@@ -272,7 +272,7 @@ Importe le style nécessaire à markdown pour mes spoiler.
 
 ```json
 "Spoiler style perso": {
-  "prefix": "style",
+  "prefix": "xstyle",
   "body": [
     "<style>.spoiler{border-left:4px solid #1abc9c;border-bottom-left-radius:3px;padding-left:10px;padding-top:15px;margin-top:-10px;margin-bottom:15px}.button{cursor:pointer;padding:5px 10px;background-color:#3498db;color:white;border-radius:3px;margin-bottom:5px;display:inline-block;transition:background-color 0.2s}.button:hover{background-color:#217dbb}details[open] .button{background-color:#1abc9c}</style>"
   ],
@@ -282,15 +282,28 @@ Importe le style nécessaire à markdown pour mes spoiler.
 
 ### Spoiler
 
-Bloc spoiler
+On fait `'CTRL+SHIFT+P'`\ `"Snippets configurer user snippet"`  
+Et choisissez le language `markdown`
 
 ```json
-"Spoiler collapsible contenu": {
-  "prefix": "spoiler",
+"Spoiler collapsible contenu with style": {
+  "prefix": "yyspoiler",
   "body": [
-    "<details><summary class=\"button\">Spoiler</summary><div class=\"spoiler\">",
+    "<details><summary class=\"button\">🔍 Spoiler</summary><div class=\"spoiler\">",
     "",
     "$0",
+    "",
+    "</div></details>"
+  ],
+  "description": "Insère un spoiler collapsible avec curseur sur le contenu"
+},
+"Spoiler collapsible contenu without style": {
+  "prefix": "yspoiler",
+  "body": [
+    "<details><summary>🔍 Spoiler</summary><div>",
+    "",
+    "$0",
+    "",
     "</div></details>"
   ],
   "description": "Insère un spoiler collapsible avec curseur sur le contenu"
