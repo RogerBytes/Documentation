@@ -254,7 +254,7 @@ Snippet pour charger ma lib pour ma fonction de chemin path()
 
 Snippet pour faire un bloc de code avec les triple backtick.
 
-```json
+````json
 "Code block with language": {
   "prefix": "ycodeblock",
   "body": [
@@ -264,20 +264,27 @@ Snippet pour faire un bloc de code avec les triple backtick.
   ],
   "description": "Insère un bloc de code avec le langage à saisir"
 }
-```
+````
 
 ### Style perso
 
 Importe le style nécessaire à markdown pour mes spoiler.
 
 ```json
-"Spoiler style perso": {
-  "prefix": "xstyle",
-  "body": [
-    "<style>.spoiler{border-left:4px solid #1abc9c;border-bottom-left-radius:3px;padding-left:10px;padding-top:15px;margin-top:-10px;margin-bottom:15px}.button{cursor:pointer;padding:5px 10px;background-color:#3498db;color:white;border-radius:3px;margin-bottom:5px;display:inline-block;transition:background-color 0.2s}.button:hover{background-color:#217dbb}details[open] .button{background-color:#1abc9c}</style>"
-  ],
-  "description": "Insère ton style perso pour spoiler Markdown sur une ligne"
-},
+  "Spoiler style perso": {
+    "prefix": "xstyle",
+    "body": [
+      "<span hidden>",
+      "",
+      "<style>.spoiler{border-left:4px solid #1abc9c;border-bottom-left-radius:3px;padding-left:10px;padding-top:15px;margin-top:-10px;margin-bottom:15px}.button{cursor:pointer;padding:5px 10px;background-color:#3498db;color:white;border-radius:3px;margin-bottom:5px;display:inline-block;transition:background-color 0.2s}.button:hover{background-color:#217dbb}details[open] .button{background-color:#1abc9c}</style>",
+      "",
+      "</span>",
+      "",
+      "<p align=\"right\"><a href=\"#documentation-du-markdown\">🔝 Retour en haut</a></p>",
+      ""
+    ],
+    "description": "Insère ton style perso pour spoiler Markdown sur une ligne"
+  },
 ```
 
 ### Spoiler
@@ -287,20 +294,9 @@ Et choisissez le language `markdown`
 
 ```json
 "Spoiler collapsible contenu with style": {
-  "prefix": "yyspoiler",
-  "body": [
-    "<details><summary class=\"button\">🔍 Spoiler</summary><div class=\"spoiler\">",
-    "",
-    "$0",
-    "",
-    "</div></details>"
-  ],
-  "description": "Insère un spoiler collapsible avec curseur sur le contenu"
-},
-"Spoiler collapsible contenu without style": {
   "prefix": "yspoiler",
   "body": [
-    "<details><summary>🔍 Spoiler</summary><div>",
+    "<details><summary class=\"button\">🔍 Spoiler</summary><div class=\"spoiler\">",
     "",
     "$0",
     "",
@@ -313,16 +309,16 @@ Et choisissez le language `markdown`
 ### Snipper signature
 
 ```md
-  "Insert Author Block": {
-    "prefix": "yauthorblock",
-    "body": [
-      "## Auteur",
-      "",
-      "[<img src=\"https://github.com/RogerBytes.png\" width=\"40\" height=\"40\" style=\"border-radius:50%;\" alt=\"RogerBytes' avatar\">](https://github.com/RogerBytes)  ",
-      "[**RogerBytes (Harry Richmond)**](https://github.com/RogerBytes)"
-    ],
-    "description": "Insère un bloc auteur avec avatar et nom cliquable"
-  }
+"Insert Author Block": {
+"prefix": "yauthorblock",
+"body": [
+"## Auteur",
+"",
+"[<img src=\"https://github.com/RogerBytes.png\" width=\"40\" height=\"40\" style=\"border-radius:50%;\" alt=\"RogerBytes' avatar\">](https://github.com/RogerBytes) ",
+"[**RogerBytes (Harry Richmond)**](https://github.com/RogerBytes)"
+],
+"description": "Insère un bloc auteur avec avatar et nom cliquable"
+}
 ```
 
 ---
