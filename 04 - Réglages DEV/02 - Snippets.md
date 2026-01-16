@@ -250,22 +250,6 @@ Snippet pour charger ma lib pour ma fonction de chemin path()
 
 ## Snippet MarkDown
 
-### Codebloc
-
-Snippet pour faire un bloc de code avec les triple backtick.
-
-````json
-"Code block with language": {
-  "prefix": "ycodeblock",
-  "body": [
-    "```$1",
-    "$0",
-    "```"
-  ],
-  "description": "Insère un bloc de code avec le langage à saisir"
-}
-````
-
 ### Style perso
 
 Importe le style nécessaire à markdown pour mes spoiler.
