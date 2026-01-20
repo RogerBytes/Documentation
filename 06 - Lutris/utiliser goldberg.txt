@@ -1,0 +1,49 @@
+# goldberg_emulator
+
+On peut aussi tester SmartSteamEmu 1.4.7 - Steam game multiplayer without steam!
+
+
+https://gitlab.com/Mr_Goldberg/goldberg_emulator
+
+wget https://gitlab.com/Mr_Goldberg/goldberg_emulator/-/jobs/4247811310/artifacts/download
+
+
+
+## **Identifier les fichiers Steam du jeu PEAK**
+
+* Dans le dossier d’installation du jeu, chercher après  * `steam_api.dll` ou `` (Windows) ou `libsteam_api.so` (Linux)
+Par exemple, pour "Card Survival Tropical Island" le fichier `steam_api64.dll` se trouve dans `Card Survival Tropical Island/Card Survival - Tropical Island_Data/Plugins/x86_64`
+
+
+
+Pour certains jeux, avec le DLL utlisé, dans le repertoire `tools`, attention à bien choisir le fichier (peut etre également `steam_api64.dll`), on genertre yub fichier steam_interface.txt
+
+generate_interfaces_file.exe steam_api.dll
+
+
+
+
+Renommer le ou les fichier en .bak (comme sauvegarde pour restaurer le jeu à l'origine)
+
+
+Après le premier lancement des fichiers seront créés dans `drive_c/users/steamuser/AppData/Roaming/GSE Saves/settings` (ou Goldberg SteamEmu Saves)
+
+Pour le multi, on peut modifier :
+
+account_steamid=76561199274000212
+
+et changer les 4 derniers digits par ceux du compte steam
+pour trouver votre user id steam, aller dans :
+'votre pseudo en haut à droite'/Detail du compte/
+Juste en dessous de votre pseudo vous auez votre ID Steam
+
+Compte de User
+ID Steam : 98561198818168376
+
+ca peut aussi être dans un fichier user_steam_id.txt si non 64x.
+https://store.steampowered.com/account/
+
+
+## Se connecter en LAN
+
+Il suffit d'être en lan ou sur via un emulateur de lan comme hamachi et il suffit de lancer le jeu, les gens verront automatiquement le lobbny
