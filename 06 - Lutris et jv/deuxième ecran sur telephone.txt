@@ -1,0 +1,81 @@
+Installer weylus
+
+wget https://github.com/H-M-H/Weylus/releases/download/v0.11.4/Weylus_0.11.4_amd64.deb
+sudo nala install -y Weylus_0.11.4_amd64.deb
+rm Weylus_0.11.4_amd64.deb
+
+instaler le bouzin d'ecran virtuel
+sudo nala install -y xserver-xorg-video-dummy
+
+
+sudo mkdir -p /etc/X11/xorg.conf.d
+sudo tee /etc/X11/xorg.conf.d/10-dummy.conf > /dev/null <<EOF
+Section "Device"
+    Identifier  "NvidiaDevice"
+    Driver      "nvidia"
+EndSection
+
+Section "Monitor"
+    Identifier "RealMonitor"
+EndSection
+
+Section "Screen"
+    Identifier "RealScreen"
+    Device     "NvidiaDevice"
+    Monitor    "RealMonitor"
+    DefaultDepth 24
+EndSection
+
+Section "Device"
+    Identifier "DummyDevice"
+    Driver      "dummy"
+EndSection
+
+Section "Monitor"
+    Identifier "DummyMonitor"
+EndSection
+
+Section "Screen"
+    Identifier "DummyScreen"
+    Device     "DummyDevice"
+    Monitor    "DummyMonitor"
+    DefaultDepth 24
+    Option "PreferredMode" "1280x720"
+    SubSection "Display"
+        Depth 24
+        Modes "1280x720"
+    EndSubSection
+EndSection
+EOF
+
+
+on redemmare le seveur video
+sudo systemctl restart lightdm
+
+
+et on liste
+xrandr --listmonitors
+
+
+
+Installer VirtScreen
+
+sudo nala install -y x11vnc
+wget https://github.com/kbumsik/VirtScreen/releases/download/0.3.1/virtscreen.deb
+sudo nala install -y virtscreen.deb
+rm virtscreen.deb
+
+
+
+le lancer avec
+virtscreen
+
+(choisir "le lancer une fois")
+
+
+dans la barre des taches aller en hgaut sur l'icon de virtscreen
+
+
+1280×720
+
+No virtual screen name found

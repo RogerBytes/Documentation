@@ -1,90 +1,58 @@
 # Forcer une résolution
 
-## Dépendances
+
+## Truc tout prêt
+
+Faire une résolution customisé (utile sur un vieux portable), voici la commande à c/c.
+Modifiez au besoin les valeurs de `MONITOR`, `MODE` et `MODELIN`.
 
 ```bash
-sudo nala install -y xcvt
+MONITOR=eDP
+MODE="1920x1080_60.00"
+MODELIN="173.00  1920 2048 2248 2576  1080 1083 1088 1120 -hsync +vsync"
+
+
+cat << EOF | sudo tee /etc/X11/Xsession.d/45custom-resolution > /dev/null
+#!/bin/sh
+xrandr --newmode $MODE $MODELIN
+xrandr --addmode $MONITOR $MODE
+EOF
+sudo chmod +x /etc/X11/Xsession.d/45custom-resolution
 ```
 
-## Ajouter une résolution
+### Valeur de MONITOR
 
-Afficher les moniteurs avec
+Pour `MONITOR`:
 
 ```bash
 xrandr --listactivemonitors
 ```
 
-Ca retourne chez moi :
+Ca retourne
 
 ```bash
+❯ xrandr --listactivemonitors
 Monitors: 1
- 0: +*eDP-1-1 1366/344x768/194+0+0  eDP-1-1
+ 0: +*eDP 2560/708x1440/399+0+0  eDP
 ```
 
-Mon écran c'est `eDP-1-1`
+Le monitor c'est `eDP`.
 
-Ensuite pour tester du 1920*1080
+### Valeurs de MODELIN et MODE
+
+On teste pour voir si on arrive à forcer la résolution
 
 ```bash
 cvt 1920 1080
 ```
 
-Ca retourne chez moi :
+Ca retourne :
 
 ```bash
+❯ cvt 1920 1080
 # 1920x1080 59.96 Hz (CVT 2.07M9) hsync: 67.16 kHz; pclk: 173.00 MHz
 Modeline "1920x1080_60.00"  173.00  1920 2048 2248 2576  1080 1083 1088 1120 -hsync +vsync
 ```
 
-On copie ce se trouve derrière `Modeline`
-`"1920x1080_60.00"  173.00  1920 2048 2248 2576  1080 1083 1088 1120 -hsync +vsync`
-Et on le colle derrière `xrandr --newmode` pour créer cette commande :
+Le mode c'est `1920x1080_60.00` et le modeline c'est `173.00  1920 2048 2248 2576  1080 1083 1088 1120 -hsync +vsync`.
 
-```bash
-xrandr --newmode "1920x1080_60.00"  173.00  1920 2048 2248 2576  1080 1083 1088 1120 -hsync +vsync
-```
-
-Ensuite pour l'ajouter aux menu d'affichage
-
-```bash
-xrandr --addmode eDP-1-1 "1920x1080_60.00"
-```
-
-Remplacez `eDP-1-1` par le nom de votre écran.
-
-## Créer un script pour rendre le changement permanent
-
-En une commande
-
-```bash
-echo -e 'xrandr --newmode "1920x1080_60.00"  173.00  1920 2048 2248 2576  1080 1083 1088 1120 -hsync +vsync\nxrandr --addmode eDP-1-1 "1920x1080_60.00"' | sudo tee /etc/profile.d/external_monitor_resol.sh > /dev/null && sudo chmod +x /etc/profile.d/external_monitor_resol.sh
-```
-
-Et pour on l'ajoute au démarrage de session :
-
-```bash
-echo '/etc/profile.d/external_monitor_resol.sh' | sudo tee -a /etc/rc.local > /dev/null
-```
-
-## Faire toutes les étapes manuellement
-
-On créé et édite un fichier système
-
-```bash
-sudo nano /etc/profile.d/external_monitor_resol.sh
-```
-
-et on y colle
-
-```text
-xrandr --newmode "1920x1080_60.00"  173.00  1728 2048 2248 2576  1080 1083 1088 1120 -hsync +vsync
-xrandr --addmode eDP-1-1 "1920x1080_60.00"
-```
-
-`CTRL + X` pour fermez, `O` pour enregistrer, puis `Entrée`
-
-Et pour on l'ajoute au démarrage de session :
-
-```bash
-echo '/etc/profile.d/external_monitor_resol.sh' | sudo tee -a /etc/rc.local > /dev/null
-```
