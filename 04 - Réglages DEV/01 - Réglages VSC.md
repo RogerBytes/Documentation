@@ -74,6 +74,35 @@ codium --install-extension gitpod.gitpod-theme
 
 ## Changer le thème
 
+### Polices
+
+On installe les polices
+
+```bash
+sudo nala install -y fonts-firacode fonts-fira
+wget https://github.com/mozilla/Fira/archive/refs/tags/4.202.zip -O fira.zip
+unzip fira.zip -d fira
+mkdir -p ~/.fonts
+cp fira/Fira-4.202/otf/*.otf ~/.fonts/
+fc-cache -fv
+rm -r fira
+rm fira.zip
+```
+
+Dans le JSON de paramètre, ça équivaut à cette ligne
+
+```json
+  "editor.fontFamily": "'Fira Code', monospace",
+  "editor.fontLigatures": true,
+```
+
+Il ne reste qu'à relancer Codium.
+
+`Fira Code` utilise les ligatures sont des combinaisons de caractères affichées comme un seul symbole graphique pour rendre le code plus lisible, par exemple `=>` devient une flèche →.
+On peut aussi utiliser `'Fira Mono', monospace` au lieu de `'Fira Code', monospace`, qui lui ne fait aucune ligature.
+
+### Icônes
+
 Pour changer le thème des icônes et le theme de l'IDE
 
 Pour le thème principal je conseille : gitpod
