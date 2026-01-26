@@ -279,6 +279,19 @@ Par défaut VSC demande régulièrement à retaper le passphrase de la clef ssh,
 echo -e "default-cache-ttl 28800\nmax-cache-ttl 28800\nenable-ssh-support" > ~/.gnupg/gpg-agent.conf && gpgconf --kill gpg-agent
 ```
 
+## Twig avec prettier
+
+voici comment activer le support de prettier pour vos template en twig, à lancer à la racine du projet
+
+```bash
+npm install --save-dev @zackad/prettier-plugin-twig
+cat > .prettierrc.json <<'EOF'
+{
+  "plugins": ["@zackad/prettier-plugin-twig"]
+}
+EOF
+```
+
 ## Auteurs
 
 - [Harry RICHMOND](https://github.com/RogerBytes)
