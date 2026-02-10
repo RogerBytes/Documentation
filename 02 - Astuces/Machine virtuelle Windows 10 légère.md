@@ -110,7 +110,7 @@ Dans la machine windows :
 - Dossier :
 
 ```text
-\\192.168.122.1\Local\VMs\Partage
+\\192.168.122.1\Partage
 ```
 
 - Coche **“Se reconnecter à la connexion”**.
@@ -147,4 +147,28 @@ Terminal=false
 Categories=Utility;
 EOF
 ```
+
+## Pour avoir une taille dynamique
+
+Les commandes utilisent "Windows10.qcow2" par défaut.
+
+```bash
+qemu-img convert -O qcow2 Windows10.qcow2 Windows10-shrink.qcow2
+```
+
+Bouger "Windows10.qcow2" ailleurs puir renommer "Windows10-shrink.qcow2" en "Windows10.qcow2"
+
+La taille du fichier qcows2 augmentera (ou diminuera) de manière dynamique
+
+## Augmenter la taille du disque
+
+Ici je lui ajoute 110 Go a ce qu'il a déja comme capacité.
+
+```bash
+qemu-img resize Windows10.qcow2 +251G
+```
+
+## Etendre la partion dans la vm windows
+
+Il faut utiliser minitool partition wizard
 
