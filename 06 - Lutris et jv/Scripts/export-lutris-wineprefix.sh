@@ -154,6 +154,26 @@ if [ -L "${WINEPREFIX_DIR}/drive_c/users/steamuser/Application Data/" ]; then
   rm -rf -- "${WINEPREFIX_DIR}/drive_c/users/steamuser/Application Data/"
 fi
 
+if [ -L "${WINEPREFIX_DIR}/drive_c/users/steamuser/Desktop" ]; then
+  rm -rf -- "${WINEPREFIX_DIR}/drive_c/users/steamuser/Desktop"
+fi
+
+if [ -L "${WINEPREFIX_DIR}/drive_c/users/steamuser/Music" ]; then
+  rm -rf -- "${WINEPREFIX_DIR}/drive_c/users/steamuser/Music"
+fi
+
+if [ -L "${WINEPREFIX_DIR}/drive_c/users/steamuser/Pictures" ]; then
+  rm -rf -- "${WINEPREFIX_DIR}/drive_c/users/steamuser/Pictures"
+fi
+
+if [ -L "${WINEPREFIX_DIR}/drive_c/users/steamuser/Videos" ]; then
+  rm -rf -- "${WINEPREFIX_DIR}/drive_c/users/steamuser/Videos"
+fi
+
+if [ -L "${WINEPREFIX_DIR}/drive_c/users/steamuser/Documents" ]; then
+  rm -rf -- "${WINEPREFIX_DIR}/drive_c/users/steamuser/Documents"
+fi
+
 if [ -d "${WINEPREFIX_DIR}/drive_c/users/steamuser/My Documents/" ]; then
   rm -rf -- "${WINEPREFIX_DIR}/drive_c/users/steamuser/My Documents/"
 fi
