@@ -6,7 +6,7 @@ Je n'ai pas testé les services gratuits d'EteSync, je recommande d'utiliser Viv
 
 En dehors de CalDAV/CardDAV attention à passer via KeePassXC pour vos mdp sur navigateur et Floccus (je conseille avec WebDAV) pour vos signets, il n'est pas recommandé de mettre tous ses œufs dans le même panier.
 
-**Services CalDAV/CardDAV gratuits**
+### Services CalDAV/CardDAV gratuits
 
 - [Compte Vivaldi (recommandé)](https://vivaldi.net/wp-login.php)
 - [Compte Fruux](https://fruux.com) - (`https://dav.fruux.com`)
@@ -19,14 +19,14 @@ Je vais ici décrire la marche à suivre pour Thunderbird, c'est quasi identique
 - Aller dans la partie "Agenda" et cliquer sur "Nouvel agenda..." "Sur le réseau"
 
 - Nom d'utilisateur :
-  _nom_de_compte_mail_@vivaldi.net
+  `_nom_de_compte_mail_@vivaldi.net`
 
 - Adresse :
-  vivaldi.net
+  `vivaldi.net`
 
 - Cliquer sur "Rechercher des agendas", puis :
   Mdp
-  _Votre MDP_
+  `_Votre MDP_`
 
 ## Linux - Application `Comptes en ligne`
 

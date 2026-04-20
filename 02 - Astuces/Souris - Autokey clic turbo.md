@@ -1,13 +1,14 @@
-https://linuxaria.com/pills/automate-your-common-tasks-on-linux-with-autokey
-https://github.com/autokey/autokey/wiki/Beginners-Guide
-https://forums.linuxmint.com/viewtopic.php?t=294639
+# Souris AutoKey Turbo
+
+<https://linuxaria.com/pills/automate-your-common-tasks-on-linux-with-autokey>
+<https://github.com/autokey/autokey/wiki/Beginners-Guide>
+<https://forums.linuxmint.com/viewtopic.php?t=294639>
 
 Installer autokey
 sudo nala install -y autokey-gtk
 
 1. Créer un dossier pour nos scripts perso, perso je créé un dossier "Scripts AutoKey" dans mon dossier ~/Documents/Médias/Logiciel/Scripts AutoKey/ :
 mkdir -p "$HOME/Documents/Médias/Logiciel/Scripts AutoKey"
-
 
 Dans AutoKey maintenant :
 Cliquer sur "Nouveau" : Folder/ Allez dans le dossier choisi, donner un nom ici "Scripts" et valider
@@ -17,10 +18,7 @@ Cliquer sur "Nouveau" : Script/ le nommer "Rapid Fire"
 
 Dans le bloc de code (à droite), coller :
 
-
 mouse.click_relative_self(0, 0, 1)
-
-
 
 Il fera dans les 33 clics par secondes
 
@@ -34,7 +32,6 @@ Idéal si vous avez bin une touche sur un bouton souris, par exemple j'ai bind F
 
 ou dans ckb next, dans l'onglet program
 xdg-open /home/rogerbytes/Documents/Logiciel/Scripts AutoKey/Scripts/Rapid Fire.py
-
 
 1 &
 2 É
