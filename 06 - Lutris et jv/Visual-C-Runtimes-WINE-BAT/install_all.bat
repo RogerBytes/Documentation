@@ -32,8 +32,8 @@ start /wait vcredist2015-2022_x86.exe /passive /norestart
 echo .NET Desktop Runtime...
 start /wait windowsdesktop-runtime-8.0.8-win-x86.exe /passive /norestart
 
-echo .oalinst..
-start /wait oalinst.exe /passive /norestart
+rem echo .oalinst..
+rem start /wait oalinst.exe /passive /norestart
 
 goto END
 
