@@ -16,13 +16,14 @@ mkdir -p "$HOME/Local/VMs/iso"
 mkdir -p "$HOME/Local/VMs/Partage"
 cat wiso.tzst* > wiso.tzst && tar -I zstd -xf wiso.tzst -C "$HOME/Local/VMs/iso"
 rm wiso.tzst*
+sudo usermod -aG libvirt,kvm $USER
 ```
 
 ## Utilisation
 
 Après avoir téléchargé votre iso `Win10_22H2_French_x64v1.iso` et l'avoir mis dans `~/Local/VMs/iso`
 
-1. Lancez Virt-Manager "Gestionnaire de machines virtuelles" `virt-manager`  :
+1. Lancez Virt-Manager "Gestionnaire de machines virtuelles" `virt-manager` :
 
 2. Cliquez sur **Créer une nouvelle machine virtuelle**.
 
@@ -37,7 +38,6 @@ Après avoir téléchargé votre iso `Win10_22H2_French_x64v1.iso` et l'avoir mi
 7. Créez un **disque virtuel**, 40 Go c'est assez.
 
 8. Finalisez la configuration :
-
    - Donnez un nom à la VM, ici "Windows10".
    - Si souhaité, activez **l’interface réseau en mode NAT** (recommandé pour accès Internet).
 
@@ -93,13 +93,11 @@ Puis ajouter un mdp à son serveur samba avec
 sudo smbpasswd -a $USER
 ```
 
-
 Récupérer son ip avec
 
 ```bash
 ip addr show virbr0 | grep -oP 'inet \K[\d\.]+'
 ```
-
 
 il retourne `192.168.122.1` dans mon cas, donc
 
@@ -134,7 +132,13 @@ virsh start Windows10
 virt-manager --connect qemu:///system --show-domain-console Windows10
 EOF
 
+sudo tee /usr/local/bin/lancer-partage.sh > /dev/null <<'EOF'
+#!/bin/bash
+sudo systemctl restart smbd
+EOF
+
 sudo chmod +x /usr/local/bin/lancer-windows10.sh
+sudo chmod +x /usr/local/bin/lancer-partage.sh
 
 sudo tee /usr/share/applications/Windows10.desktop > /dev/null <<'EOF'
 [Desktop Entry]
@@ -142,6 +146,17 @@ Type=Application
 Name=Windows10 VM
 Comment=Lancer Windows10 via Virt-Manager
 Exec=/usr/local/bin/lancer-windows10.sh
+Icon=computer
+Terminal=false
+Categories=Utility;
+EOF
+
+sudo tee /usr/share/applications/PartageVM.desktop > /dev/null <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=Partage VM
+Comment=Lancer le serveur samba pour se connecter entre la VM et l'hôte
+Exec=/usr/local/bin/lancer-partage.sh
 Icon=computer
 Terminal=false
 Categories=Utility;
@@ -171,4 +186,3 @@ qemu-img resize Windows10.qcow2 +251G
 ## Etendre la partion dans la vm windows
 
 Il faut utiliser minitool partition wizard
-
