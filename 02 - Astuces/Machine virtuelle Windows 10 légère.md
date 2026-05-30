@@ -16,12 +16,13 @@ mkdir -p "$HOME/Local/VMs/iso"
 mkdir -p "$HOME/Local/VMs/Partage"
 cat wiso.tzst* > wiso.tzst && tar -I zstd -xf wiso.tzst -C "$HOME/Local/VMs/iso"
 rm wiso.tzst*
+rm light.w10.vm.tar.gz
 sudo usermod -aG libvirt,kvm $USER
 ```
 
 ## Utilisation
 
-Après avoir téléchargé votre iso `Win10_22H2_French_x64v1.iso` et l'avoir mis dans `~/Local/VMs/iso`
+Après avoir téléchargé votre iso `Win10_22H2_French_x64v1.iso` et l'avoir mis dans `~/Local/VMs/iso` (avec les commande au dessus)
 
 1. Lancez Virt-Manager "Gestionnaire de machines virtuelles" `virt-manager` :
 
@@ -33,7 +34,7 @@ Après avoir téléchargé votre iso `Win10_22H2_French_x64v1.iso` et l'avoir mi
 
 5. Décochez **Détecter automatiquement depuis la source/média d'installation** (ou choisissez manuellement Windows 10).
 
-6. Allouez la **RAM** (4 à 6 Go suffisent) et le **nombre de cœurs CPU** (2 à 4 coeur suffisent), s'il y a une demande de permission, cochez `Ne plus faire de demandes sur ces dossiers` et cliquez sur `Oui`.
+6. Allouez la **RAM** (4096 à 6144 Go suffisent) et le **nombre de cœurs CPU** (2 à 4 cœurs suffisent), s'il y a une demande de permission, cochez `Ne plus faire de demandes sur ces dossiers` et cliquez sur `Oui`.
 
 7. Créez un **disque virtuel**, 40 Go c'est assez.
 
@@ -43,23 +44,27 @@ Après avoir téléchargé votre iso `Win10_22H2_French_x64v1.iso` et l'avoir mi
 
 9. Cliquez sur **Terminer** pour démarrer la VM et lancer l'installation de l’OS.
 
-10. faire l'install en mode hors ligne même s'il rechigne un peu (ca evite de mettre un compte windows)
+10. faire l'install en mode hors ligne même s'il rechigne un peu (ca evite de mettre un compte windows), choisir `Windows 10 Professionnel` (sans le `N` attention)
 
-11. Virer l'iso des disque de la VM (plus besoin)
+11. En nom d'user mettre "Windows 10" ne rien mettre pour me mdp, choisir "non" pour toutes les demandes qui suivent.
 
-12. En nom d'user mettre "Windows 10" ne rien mettre pour me mdp.
+12. Reboot et faire encore maj en boucle jusqu'à ce qu'il y a plus de maj, quand il n'y a plus de màj dans windows update, passer au maj depuis le store
 
-13. Reboot et faire encore maj en boucle jusqu'à ce qu'il y a plus de maj
+13. Dans la fenêtre d'affichage de la VM, aller dans `Afficher/Mettre à l'échelle l'affichage` et choisir `Toujours`, dans windows choisir 1920x1080, de nouveau dans la fenêtre d'affichage de la VM, aller dans `Afficher` et choisissez `Redimensionner à la taille de la VM`
 
 14. Installer MAS via c/c dans powershell (chercher sur le web le lien)
 
-15. Installer Atlas os, dans les options, choisir de désactiver windows defender
+15. Cliquer sur le cercle bleu `i`, aller sur `Sata CD-ROM 1` et remplacer par `light w10 vm.iso`
 
-16. Lancer OOSU10.exe, appliquer les trucs recommandés
+16. Installer Atlas os, dans les options, choisir de désactiver windows defender
 
-17. BCUninstaller_5.9.0_setup_fixed.exe, desisntaller un max de truc, ne pas virer windows store
+17. Lancer OOSU10.exe, appliquer les trucs recommandés
 
-18. installer floorp-stub.installer.exe une fois installé virer les autres navigateurs
+18. BCUninstaller_5.9.0_setup_fixed.exe, pas besoin de désinstaller des truc, mais il reste très pratique
+
+19. installer les runtimes, puis installer open-shell je sais plus quoi
+
+20. Virer l'iso des disque de la VM (plus besoin)
 
 ---
 
