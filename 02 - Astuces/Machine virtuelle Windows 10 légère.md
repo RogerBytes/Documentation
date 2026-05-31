@@ -12,8 +12,9 @@ tar -xzf "light.w10.vm.tar.gz"
 for p in aa ab ac ad ae af; do
   wget https://github.com/RogerBytes/VistaTen/releases/download/v0.0.1-WIP/wiso.tzst.$p
 done
-mkdir -p "$HOME/Local/VMs/iso"
+mkdir -p "$HOME/Local/VMs/Iso"
 mkdir -p "$HOME/Local/VMs/Partage"
+mkdir -p "$HOME/Local/VMs/Image"
 cat wiso.tzst* > wiso.tzst && tar -I zstd -xf wiso.tzst -C "$HOME/Local/VMs/iso"
 rm wiso.tzst*
 rm light.w10.vm.tar.gz
@@ -22,7 +23,7 @@ sudo usermod -aG libvirt,kvm $USER
 
 ## Utilisation
 
-Après avoir téléchargé votre iso `Win10_22H2_French_x64v1.iso` et l'avoir mis dans `~/Local/VMs/iso` (avec les commande au dessus)
+Après avoir téléchargé votre iso `Win10_22H2_French_x64v1.iso` et l'avoir mis dans `~/Local/VMs/Iso` (avec les commande au dessus)
 
 1. Lancez Virt-Manager "Gestionnaire de machines virtuelles" `virt-manager` :
 
@@ -172,8 +173,10 @@ EOF
 
 Les commandes utilisent "Windows10.qcow2" par défaut.
 
+Le chemin par défaut est `/var/lib/libvirt/images/`
+
 ```bash
-qemu-img convert -O qcow2 Windows10.qcow2 Windows10-shrink.qcow2
+qemu-img convert -O qcow2 RDPWindows.qcow2 RDPWindows-shrink.qcow2
 ```
 
 Bouger "Windows10.qcow2" ailleurs puir renommer "Windows10-shrink.qcow2" en "Windows10.qcow2"
@@ -182,10 +185,17 @@ La taille du fichier qcows2 augmentera (ou diminuera) de manière dynamique
 
 ## Augmenter la taille du disque
 
+Pour donner les droits d'accès
+
+```bash
+
+sudo chmod 666 RDPWindows.qcow2
+```
+
 Ici je lui ajoute 110 Go a ce qu'il a déja comme capacité.
 
 ```bash
-qemu-img resize Windows10.qcow2 +251G
+qemu-img resize RDPWindows.qcow2 +251G
 ```
 
 ## Etendre la partion dans la vm windows
