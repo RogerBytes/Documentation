@@ -17,9 +17,13 @@ declare -A names_map
 declare -A files_map
 declare -A runners_needed
 
-if [ -n "$lutrisbefore_pid" ]; then
-  kill "$lutrisbefore_pid"
+# Fermer uniquement Lutris (et pas le script lui-même !)
+if flatpak list | grep -q lutris; then
+  flatpak kill net.lutris.Lutris 2>/dev/null
 fi
+
+pkill -9 -x lutris 2>/dev/null
+pkill -9 -f "/usr/bin/lutris" 2>/dev/null
 
 # Affectation de variable en fonction du type d'installation
 check_flatpak_lutris_installed() {
@@ -57,19 +61,15 @@ if [ -f "$lutris_option_file" ]; then
   fi
 fi
 
-
 # ---------------------------------------------------------------------------------------------
 
 # Création/remplissage des tableaux associatifs
-
 shopt -s nullglob
 tzst_files=( ./*.tzst )
 if [ ${#tzst_files[@]} -eq 0 ]; then
   echo "Aucun fichier de préfixe au format .tzst trouvé."
   exit 1
 fi
-
-
 
 index=1
 for file in "${tzst_files[@]}"; do
@@ -88,11 +88,9 @@ for file in "${tzst_files[@]}"; do
   ((index++))
 done
 
-
 # ---------------------------------------------------------------------------------------------
 
 # Installation des runners nécessaires
-
 install_runner_if_needed() {
   runner=$1
   if [ ! -d "$lutris_runner_dir/$runner" ]; then
@@ -112,16 +110,13 @@ install_runner_if_needed() {
   fi
 }
 
-
 for runner in "${!runners_needed[@]}"; do
   install_runner_if_needed "$runner"
 done
 
-
 # ---------------------------------------------------------------------------------------------
 
-# Extraction des prefixe et creation des yml
-
+# Extraction des préfixes et création des YML
 for i in "${!names_map[@]}"; do
   filename="${files_map[$i]}"
   name="${names_map[$i]}"
@@ -132,8 +127,7 @@ for i in "${!names_map[@]}"; do
   preload_script=false
   prefix_dir="$games_dir/$slug"
 
-
-  # extraction
+  # Extraction
   mkdir -p "$games_dir"
   tar -I zstd -xvf "./$filename" -C "$games_dir"
   if [ $? -ne 0 ]; then
@@ -141,42 +135,31 @@ for i in "${!names_map[@]}"; do
     exit 1
   fi
 
-  # Remplacer "anonuser" par le nom d'utilisateur dans system.reg
-  if [ -f "${prefix_dir}/system.reg" ]; then
-    sed -i 's|anonuser|'$USER'|g' "${prefix_dir}/system.reg"
-  fi
+  # Remplace "anonuser" par le véritable nom d'utilisateur système
+  for reg in "system.reg" "user.reg" "userdef.reg" "lutris.json"; do
+    if [ -f "${prefix_dir}/${reg}" ]; then
+      sed -i "s|anonuser|${USER}|g" "${prefix_dir}/${reg}"
+    fi
+  done
 
-  # Remplacer "anonuser" par le nom d'utilisateur dans user.reg
-  if [ -f "${prefix_dir}/user.reg" ]; then
-    sed -i 's|anonuser|'$USER'|g' "${prefix_dir}/user.reg"
+  # Restauration des liens de base Wine/Proton pour UMU
+  mkdir -p "${prefix_dir}/dosdevices"
+  ln -sf "../drive_c" "${prefix_dir}/dosdevices/c:"
+  if [ ! -e "${prefix_dir}/pfx" ]; then
+    ln -sf "." "${prefix_dir}/pfx"
   fi
-
-  # Remplacer "anonuser" par le nom d'utilisateur dans userdef.reg
-  if [ -f "${prefix_dir}/userdef.reg" ]; then
-    sed -i 's|anonuser|'$USER'|g' "${prefix_dir}/userdef.reg"
-  fi
-
-  # Remplacer "anonuser" par le nom d'utilisateur dans lutris.json
-  if [ -f "${prefix_dir}/lutris.json" ]; then
-    sed -i 's|anonuser|'$USER'|g' "${prefix_dir}/lutris.json"
-  fi
-
 
   gamefolder=$(basename "$prefix_dir/drive_c/Games/"*/)
   ini_parent_dir="$prefix_dir/drive_c/Games/$gamefolder"
   goglog="$ini_parent_dir/goglog.ini"
 
-
   if [ -f "$goglog" ]; then
-    sed -i 's|anonuser|'$USER'|g' "$goglog"
+    sed -i "s|anonuser|${USER}|g" "$goglog"
   fi
-
 
   # Vérification du dossier 'scripts'
   if [ -d "$games_dir/$slug/scripts" ]; then
-    # Vérification du fichier .amgp dans le dossier scripts
     gamepad_file=$(find "$games_dir/$slug/scripts" -type f -name "*.amgp" -print -quit)
-    # Vérification du fichier start.sh dans le dossier scripts
     start_file=$(find "$games_dir/$slug/scripts" -type f -name "start.sh" -print -quit)
 
     if [ -n "$gamepad_file" ]; then
@@ -187,9 +170,6 @@ for i in "${!names_map[@]}"; do
       preload_script=true
     fi
   fi
-
-
-
 
   # Création du fichier yml pour lutris
   cat > "$yml_file" <<EOL
@@ -208,72 +188,69 @@ script:
       description: Création du préfixe en cours
       name: create_prefix
       prefix: \$GAMEDIR
-
 EOL
 
-
-
-
-  # on renomme le dossier extrait
+  # Renommer le dossier extrait complet
   mv "$prefix_dir" "${prefix_dir}TRUE"
-  # Lancer Lutris en tâche de fond en important le fichier d'installation
-  $lutris_cmd -i "$yml_file" &
-  lutris_pid=$!  # Récupérer l'ID du processus Lutris direct après son démarrage
 
-
-  # Récupérer l'état initial du prefixe
-  initial_files=$(ls "$lutris_config_dir")
-
-  # Surveiller le répertoire du prefixe
+  # Surveiller le répertoire de config avant de lancer Lutris
   initial_files=$(ls "$lutris_config_dir")
   new_files=""
 
-  while [ -z "$new_files" ]; do
+  # Lancer Lutris en tâche de fond
+  $lutris_cmd -i "$yml_file" &
+  lutris_pid=$!
+
+  # Attendre l'apparition du fichier de configuration généré par Lutris
+  config_file=""
+  while [ -z "$config_file" ]; do
+    sleep 0.5
     current_files=$(ls "$lutris_config_dir")
-    new_files=$(comm -13 <(echo "$initial_files") <(echo "$current_files"))
-    sleep 1
+    new_files=$(comm -13 <(echo "$initial_files" | sort) <(echo "$current_files" | sort))
+    config_file=$(echo "$new_files" | head -n 1)
   done
 
-  # Détecter l'ajout d'un fichier de réglage de jeu lutris pour fermer le processus de lutris
-  config_file=$(echo "$new_files" | head -n 1)
+  # 1. On arrête proprement Lutris et Wine
+  if [ "$version" == "flatpak" ]; then
+    flatpak kill net.lutris.Lutris 2>/dev/null || true
+  else
+    pkill -9 -f "lutris" 2>/dev/null || true
+  fi
+  kill $lutris_pid 2>/dev/null || true
+  wineserver -k 2>/dev/null || true
 
-  while [ ! -f "$prefix_dir/user.reg" ]; do
-    sleep 0.4
+  # 2. Suppression forcée et attente active du préfixe temporaire généré par Lutris
+  rm -rf "${prefix_dir}"
+  while [ -d "${prefix_dir}" ]; do
+    sleep 0.1
+    rm -rf "${prefix_dir}" 2>/dev/null
   done
 
-  # On vire le préfixe vierge pour le remplacer par le vrai
-  rm -r ${prefix_dir}
-  mv "${prefix_dir}TRUE" "$prefix_dir"
+  # 3. Déplacement sécurisé (-T empêche la création d'un sous-dossier)
+  mv -T "${prefix_dir}TRUE" "${prefix_dir}"
 
-  kill $lutris_pid
+  # 4. Ajustements du fichier de configuration Lutris généré
+  if [ -f "$lutris_config_dir/$config_file" ]; then
+    sed -i 's/^wine: *{}/wine:/' "$lutris_config_dir/$config_file"
+    sed -i '/^wine:/a\  version: '"$runner" "$lutris_config_dir/$config_file"
 
+    if [ "$preload_script" = true ] || [ "$gamepad" = true ]; then
+      sed -i 's/^system: {}$/system:/g' "$lutris_config_dir/$config_file"
+    fi
 
-  # Régler la version du runner wine/proton
-  sed -i 's/^wine: *{}/wine:/' "$lutris_config_dir/$config_file"
-  sed -i '/^wine:/a\  version: '"$runner" "$lutris_config_dir/$config_file"
+    if [ "$preload_script" = true ]; then
+      sed -i "/^system:/a\  prelaunch_command: $prefix_dir/scripts/start.sh" "$lutris_config_dir/$config_file"
+      sed -i "/^system:/a\  postexit_command: $prefix_dir/scripts/stop.sh" "$lutris_config_dir/$config_file"
+      sed -i "/^system:/a\  locale: ''" "$lutris_config_dir/$config_file"
+    fi
 
-
-
-  # Ajouter la section system
-  if [ "$preload_script" = true ] || [ "$gamepad" = true ]; then
-    sed -i 's/^system: {}$/system:/g' "$lutris_config_dir/$config_file"
+    if [ "$gamepad" = true ]; then
+      sed -i "/^system:/a\  antimicro_config: $gamepad_file" "$lutris_config_dir/$config_file"
+    fi
   fi
 
-  # Ajouter des configurations au démmarage et à la fermeture
-  if [ "$preload_script" = true ]; then
-    sed -i "/^system:/a\  prelaunch_command: $prefix_dir/scripts/start.sh" "$lutris_config_dir/$config_file"
-    sed -i "/^system:/a\  postexit_command: $prefix_dir/scripts/stop.sh" "$lutris_config_dir/$config_file"
-    sed -i "/^system:/a\  locale: ''" "$lutris_config_dir/$config_file"
-  fi
-
-  # Ajouter la configuration du gamepad
-  if [ "$gamepad" = true ]; then
-    sed -i "/^system:/a\  antimicro_config: $gamepad_file" "$lutris_config_dir/$config_file"
-  fi
-
-  rm "$yml_file"
-
-  echo -e "\e[32m$name installé\e[0m"
+  rm -f "$yml_file"
+  echo -e "\e[32m$name installé avec succès !\e[0m"
 done
 
 echo -e "\e[32mFin du programme\e[0m"

@@ -52,33 +52,8 @@ COMPRESSION_TYPE=${3:-zst}
 LEVEL=${4:-3}
 GAMES_DIR="${HOME}/Games"
 WINEPREFIX_DIR="${GAMES_DIR}/${WINEPREFIX_NAME}"
-GAME_DIR=$(basename "$WINEPREFIX_DIR/drive_c/Games"/*/)
 user_array=("$USER" "harry")
 # On peut rajouter des noms dans le tableau $user_array, il suffit de separer les entrée avec un espace
-ini_parent_dir="$WINEPREFIX_DIR/drive_c/Games/$GAME_DIR"
-goglog="$ini_parent_dir/goglog.ini"
-lutris_json="${WINEPREFIX_DIR}/lutris.json"
-
-# Remplacer chaque valeur du tableau par "anonuser" dans goglog.ini
-if [ -f "$goglog" ]; then
-  for user in "${user_array[@]}"; do
-    sed -i "s|$user|anonuser|g" "$goglog"
-  done
-  echo "Les utilisateurs ont été remplacés par 'anonuser' dans goglog.ini"
-else
-  echo "Le fichier goglog.ini n'existe pas"
-fi
-
-# Remplacer chaque valeur du tableau par "anonuser" dans lutris_json
-if [ -f "$lutris_json" ]; then
-  for user in "${user_array[@]}"; do
-    sed -i "s|$user|anonuser|g" "$lutris_json"
-  done
-  echo "Les utilisateurs ont été remplacés par 'anonuser' dans lutris.json"
-else
-  echo "Le fichier lutris.json n'existe pas"
-fi
-
 
 # Vérifie si le nombre d'arguments est correct
 if [ "$#" -lt 2 ] || [ "$#" -gt 5 ]; then
@@ -132,62 +107,91 @@ if [ ! -d "$WINEPREFIX_DIR" ]; then
   exit 1
 fi
 
+# on peut évaluer GAME_DIR et les fichiers .ini / .json
+GAME_DIR=$(basename "$WINEPREFIX_DIR/drive_c/Games"/*/)
+ini_parent_dir="$WINEPREFIX_DIR/drive_c/Games/$GAME_DIR"
+goglog="$ini_parent_dir/goglog.ini"
+lutris_json="${WINEPREFIX_DIR}/lutris.json"
+
+# Remplacer chaque valeur du tableau par "anonuser" dans goglog.ini
+if [ -f "$goglog" ]; then
+  for user in "${user_array[@]}"; do
+    sed -i "s|$user|anonuser|g" "$goglog"
+  done
+  echo "Les utilisateurs ont été remplacés par 'anonuser' dans goglog.ini"
+else
+  echo "Le fichier goglog.ini n'existe pas"
+fi
+
+# Remplacer chaque valeur du tableau par "anonuser" dans lutris_json
+if [ -f "$lutris_json" ]; then
+  for user in "${user_array[@]}"; do
+    sed -i "s|$user|anonuser|g" "$lutris_json"
+  done
+  echo "Les utilisateurs ont été remplacés par 'anonuser' dans lutris.json"
+else
+  echo "Le fichier lutris.json n'existe pas"
+fi
 
 # Opérations de nettoyage du préfixe
 if [ -d "${WINEPREFIX_DIR}/dosdevices" ]; then
-  rm -rf -- "${WINEPREFIX_DIR}/dosdevices"
+  rm -rf "${WINEPREFIX_DIR}/dosdevices"
 fi
 
 if [ -L "${WINEPREFIX_DIR}/drive_c/users/steamuser" ]; then
-  rm -rf -- "${WINEPREFIX_DIR}/drive_c/users/steamuser"
+  unlink "${WINEPREFIX_DIR}/drive_c/users/steamuser"
 fi
 
 if [ -L "${WINEPREFIX_DIR}/drive_c/users/${USER}" ]; then
-  rm -rf -- "${WINEPREFIX_DIR}/drive_c/users/${USER}"
+  unlink "${WINEPREFIX_DIR}/drive_c/users/${USER}"
 fi
 
 if [ -d "${WINEPREFIX_DIR}/drive_c/users/${USER}" ]; then
   mv -n "${WINEPREFIX_DIR}/drive_c/users/${USER}" "${WINEPREFIX_DIR}/drive_c/users/steamuser"
 fi
 
-if [ -L "${WINEPREFIX_DIR}/drive_c/users/steamuser/Application Data/" ]; then
-  rm -rf -- "${WINEPREFIX_DIR}/drive_c/users/steamuser/Application Data/"
+if [ -L "${WINEPREFIX_DIR}/pfx" ]; then
+  unlink "${WINEPREFIX_DIR}/pfx"
+fi
+
+if [ -L "${WINEPREFIX_DIR}/drive_c/users/steamuser/Application Data" ]; then
+  unlink "${WINEPREFIX_DIR}/drive_c/users/steamuser/Application Data"
 fi
 
 if [ -L "${WINEPREFIX_DIR}/drive_c/users/steamuser/Desktop" ]; then
-  rm -rf -- "${WINEPREFIX_DIR}/drive_c/users/steamuser/Desktop"
+  unlink "${WINEPREFIX_DIR}/drive_c/users/steamuser/Desktop"
 fi
 
 if [ -L "${WINEPREFIX_DIR}/drive_c/users/steamuser/Music" ]; then
-  rm -rf -- "${WINEPREFIX_DIR}/drive_c/users/steamuser/Music"
+  unlink -- "${WINEPREFIX_DIR}/drive_c/users/steamuser/Music"
 fi
 
 if [ -L "${WINEPREFIX_DIR}/drive_c/users/steamuser/Pictures" ]; then
-  rm -rf -- "${WINEPREFIX_DIR}/drive_c/users/steamuser/Pictures"
+  unlink "${WINEPREFIX_DIR}/drive_c/users/steamuser/Pictures"
 fi
 
 if [ -L "${WINEPREFIX_DIR}/drive_c/users/steamuser/Videos" ]; then
-  rm -rf -- "${WINEPREFIX_DIR}/drive_c/users/steamuser/Videos"
+  unlink "${WINEPREFIX_DIR}/drive_c/users/steamuser/Videos"
 fi
 
 if [ -L "${WINEPREFIX_DIR}/drive_c/users/steamuser/Documents" ]; then
-  rm -rf -- "${WINEPREFIX_DIR}/drive_c/users/steamuser/Documents"
+  unlink "${WINEPREFIX_DIR}/drive_c/users/steamuser/Documents"
 fi
 
-if [ -d "${WINEPREFIX_DIR}/drive_c/users/steamuser/My Documents/" ]; then
-  rm -rf -- "${WINEPREFIX_DIR}/drive_c/users/steamuser/My Documents/"
+if [ -L "${WINEPREFIX_DIR}/drive_c/users/steamuser/My Documents" ]; then
+  unlink "${WINEPREFIX_DIR}/drive_c/users/steamuser/My Documents"
 fi
 
 if [ -L "${WINEPREFIX_DIR}/drive_c/users/steamuser/Downloads" ]; then
-  rm -rf -- "${WINEPREFIX_DIR}/drive_c/users/steamuser/Downloads"
+  unlink "${WINEPREFIX_DIR}/drive_c/users/steamuser/Downloads"
 fi
 
-if [ -d "${WINEPREFIX_DIR}/drive_c/ProgramData/Package\ Cache/" ]; then
-  rm -rf -- "${WINEPREFIX_DIR}/drive_c/ProgramData/Package\ Cache/"*
+if [ -d "${WINEPREFIX_DIR}/drive_c/ProgramData/Package Cache/" ]; then
+  rm -rf -- "${WINEPREFIX_DIR}/drive_c/ProgramData/Package Cache/"*
 fi
 
 if [ -d "${WINEPREFIX_DIR}/drive_c/users/steamuser/Temp" ]; then
-  rm -rf -- "${WINEPREFIX_DIR}/drive_c/users/steamuser/Temp"*
+  rm -rf -- "${WINEPREFIX_DIR}/drive_c/users/steamuser/Temp/"*
 fi
 
 if [ -d "${WINEPREFIX_DIR}/drive_c" ] && [ ! -d "${WINEPREFIX_DIR}/drive_c/users/steamuser/Temp" ]; then
@@ -195,7 +199,7 @@ if [ -d "${WINEPREFIX_DIR}/drive_c" ] && [ ! -d "${WINEPREFIX_DIR}/drive_c/users
 fi
 
 if [ -L "${WINEPREFIX_DIR}/drive_c/users/steamuser/AppData/Roaming/Microsoft/Windows/Templates" ]; then
-  rm -rf -- "${WINEPREFIX_DIR}/drive_c/users/steamuser/AppData/Roaming/Microsoft/Windows/Templates"
+  unlink "${WINEPREFIX_DIR}/drive_c/users/steamuser/AppData/Roaming/Microsoft/Windows/Templates"
 fi
 
 # Vire les liens symboliques cassés
@@ -211,22 +215,14 @@ find "${WINEPREFIX_DIR}/drive_c/windows/system32" -type f -name '*.orig' -delete
 find "${WINEPREFIX_DIR}/drive_c/windows/syswow64" -type f -name '*.orig' -delete
 
 # Remplacer chaque occurrence du nom d'utilisateur dans system.reg à la racine du préfixe par "anonuser"
-if [ -f "${WINEPREFIX_DIR}/system.reg" ]; then
-  sed -i "s|$USER|anonuser|g" "${WINEPREFIX_DIR}/system.reg"
-  echo -e "Le nom d'utilisateur a été remplacé par 'anonuser' dans system.reg."
-fi
-
-# Remplacer chaque occurrence du nom d'utilisateur dans user.reg à la racine du préfixe par "anonuser"
-if [ -f "${WINEPREFIX_DIR}/user.reg" ]; then
-  sed -i "s|$USER|anonuser|g" "${WINEPREFIX_DIR}/user.reg"
-  echo -e "Le nom d'utilisateur a été remplacé par 'anonuser' dans user.reg."
-fi
-
-# Remplacer chaque occurrence du nom d'utilisateur dans userdef.reg à la racine du préfixe par "anonuser"
-if [ -f "${WINEPREFIX_DIR}/userdef.reg" ]; then
-  sed -i "s|$USER|anonuser|g" "${WINEPREFIX_DIR}/userdef.reg"
-  echo -e "Le nom d'utilisateur a été remplacé par 'anonuser' dans userdef.reg."
-fi
+for reg_file in "system.reg" "user.reg" "userdef.reg"; do
+  if [ -f "${WINEPREFIX_DIR}/${reg_file}" ]; then
+    for user in "${user_array[@]}"; do
+      sed -i "s|${user}|anonuser|g" "${WINEPREFIX_DIR}/${reg_file}"
+    done
+    echo -e "Utilisateurs anonymisés dans ${reg_file}."
+  fi
+done
 
 # Vérifie si les outils nécessaires sont disponibles
 for cmd in tar gzip xz zstd; do
