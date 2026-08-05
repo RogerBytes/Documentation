@@ -143,8 +143,8 @@ for game_real_name in "${games_to_export[@]}"; do
     if [ -n "$configpath" ] && [ -f "$lutris_config_dir/${configpath}.yml" ]; then
       yml_file="$lutris_config_dir/${configpath}.yml"
       
-      # Récupération du runner
-      detected_runner=$(awk -F': ' '/^\s*version:/ {print $2; exit}' "$yml_file" | tr -d '"'\''')
+      # Récupération sécurisée du runner (uniquement dans la section wine:)
+      detected_runner=$(awk '/^wine:/,/^[a-zA-Z]/ {if ($1 == "version:") {print $2; exit}}' "$yml_file" | tr -d '"'\''')
       [ -n "$detected_runner" ] && game_runner="$detected_runner"
 
       # Récupération de la limitation CPU (limit_cpu_count ou single_cpu)
