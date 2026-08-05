@@ -5,11 +5,19 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 OUTPUT_DIR="${HOME}"
 GAMES_DIR="${HOME}/Games"
 user_array=("$USER" "johndoe")
-default_runner="proton-cachyos-x86_64"
+
+# Récupération dynamique du runner par défaut global de Lutris
+default_runner=""
+for runners_path in "${HOME}/.local/share/lutris/runners/wine.yml" "${HOME}/.var/app/net.lutris.Lutris/data/lutris/runners/wine.yml"; do
+    if [ -f "$runners_path" ]; then
+        default_runner=$(awk -F': ' '/^\s*version:/ {print $2; exit}' "$runners_path" | tr -d '"'\''[:space:]')
+        [ -n "$default_runner" ] && break
+    fi
+done
+# Fallback ultime si aucun fichier n'est trouvé
+[ -z "$default_runner" ] && default_runner="proton-cachyos-x86_64"
 
 # Récupération des arguments optionnels (pour le mode CLI direct)
-# $1 = Nom du dossier du jeu (ex: "skyrim")
-# $2 = Niveau de compression optionnel (de 1 à 22)
 target_game_folder="${1:-}"
 cli_level="${2:-}"
 
@@ -47,7 +55,6 @@ if [ -n "$target_game_folder" ]; then
     exit 1
   fi
   
-  # Recherche du vrai nom du jeu pour l'archive
   game_real_name=""
   if command -v sqlite3 >/dev/null 2>&1 && [ -f "$lutris_db_path" ]; then
     game_real_name=$(sqlite3 "$lutris_db_path" "SELECT name FROM games WHERE slug='$target_game_folder' LIMIT 1;" 2>/dev/null)
@@ -102,7 +109,6 @@ else
 
   IFS="|" read -r -a games_to_export <<< "$selected_games"
 
-  # 3. Demande facultative pour personnaliser le taux de compression
   LEVEL=3
   zenity --question \
     --title="Options de compression" \
@@ -125,7 +131,7 @@ else
   fi
 fi
 
-# 4. Traitement de chaque jeu sélectionné (Commun aux deux modes)
+# 4. Traitement de chaque jeu sélectionné
 for game_real_name in "${games_to_export[@]}"; do
   WINEPREFIX_NAME="${folder_by_name[$game_real_name]}"
   WINEPREFIX_DIR="${GAMES_DIR}/${WINEPREFIX_NAME}"
@@ -134,7 +140,7 @@ for game_real_name in "${games_to_export[@]}"; do
     continue
   fi
 
-  # Détection du runner et des options CPU utilisés par le jeu dans Lutris
+  # Détection du runner : par défaut global, écrasé en priorité par le runner spécifique du jeu
   game_runner="$default_runner"
   cpu_limit=""
 
@@ -143,11 +149,17 @@ for game_real_name in "${games_to_export[@]}"; do
     if [ -n "$configpath" ] && [ -f "$lutris_config_dir/${configpath}.yml" ]; then
       yml_file="$lutris_config_dir/${configpath}.yml"
       
-      # Récupération sécurisée du runner (uniquement dans la section wine:)
-      detected_runner=$(awk '/^wine:/,/^[a-zA-Z]/ {if ($1 == "version:") {print $2; exit}}' "$yml_file" | tr -d '"'\''')
-      [ -n "$detected_runner" ] && game_runner="$detected_runner"
+      # Récupération sécurisée du runner spécifique du jeu (méthode combinée robuste)
+      detected_runner=$(awk '/^wine:/,/^[a-zA-Z]/ {if ($1 == "version:") print $2}' "$yml_file" | tr -d '"'\''[:space:]' | head -n 1)
+      if [ -z "$detected_runner" ]; then
+        detected_runner=$(grep -A 5 "^wine:" "$yml_file" | grep "version:" | head -n 1 | awk -F': ' '{print $2}' | tr -d '"'\''[:space:]')
+      fi
 
-      # Récupération de la limitation CPU (limit_cpu_count ou single_cpu)
+      if [ -n "$detected_runner" ]; then
+        game_runner="$detected_runner"
+      fi
+
+      # Récupération de la limitation CPU
       limit_val=$(awk -F': ' '/^\s*limit_cpu_count:/ {print $2; exit}' "$yml_file" | tr -d '"'\''[:space:]')
       if [ -n "$limit_val" ]; then
         cpu_limit="c${limit_val}"
@@ -160,26 +172,9 @@ for game_real_name in "${games_to_export[@]}"; do
     fi
   fi
 
-  # Construction du contenu des crochets selon le runner et/ou le CPU
-  bracket_content=""
-  if [ "$game_runner" != "$default_runner" ] && [ -n "$cpu_limit" ]; then
-    bracket_content="${game_runner}, ${cpu_limit}"
-  elif [ "$game_runner" != "$default_runner" ]; then
-    bracket_content="${game_runner}"
-  elif [ -n "$cpu_limit" ]; then
-    bracket_content="${cpu_limit}"
-  fi
-
-  # Application finale du nom de l'archive
-  if [ -n "$bracket_content" ]; then
-    ARCHIVE_NAME="${game_real_name} [${bracket_content}]"
-  else
-    ARCHIVE_NAME="$game_real_name"
-  fi
-
+  ARCHIVE_NAME="$game_real_name"
   archive_path="${OUTPUT_DIR}/${ARCHIVE_NAME}.zgp"
 
-  # Nettoyage et anonymisation du préfixe avant l'export
   GAME_DIR=$(basename "$WINEPREFIX_DIR/drive_c/Games"/*/)
   ini_parent_dir="$WINEPREFIX_DIR/drive_c/Games/$GAME_DIR"
   goglog="$ini_parent_dir/goglog.ini"
@@ -197,7 +192,6 @@ for game_real_name in "${games_to_export[@]}"; do
     done
   fi
 
-  # Nettoyage des liens symboliques et dossiers temporaires
   [ -d "${WINEPREFIX_DIR}/dosdevices" ] && rm -rf "${WINEPREFIX_DIR}/dosdevices"
   [ -L "${WINEPREFIX_DIR}/drive_c/users/steamuser" ] && unlink "${WINEPREFIX_DIR}/drive_c/users/steamuser"
   [ -L "${WINEPREFIX_DIR}/drive_c/users/${USER}" ] && unlink "${WINEPREFIX_DIR}/drive_c/users/${USER}"
@@ -226,16 +220,31 @@ for game_real_name in "${games_to_export[@]}"; do
     fi
   done
 
-  # Calcul de la taille du préfixe source pour évaluer la taille finale de l'archive
+  # --- CRÉATION DU FICHIER zgp-meta.json DANS LE PRÉFIXE ---
+  json_cpu_val="null"
+  [ -n "$cpu_limit" ] && json_cpu_val="\"$cpu_limit\""
+
+  cat << EOF > "${WINEPREFIX_DIR}/zgp-meta.json"
+{
+  "game_real_name": "$game_real_name",
+  "game_runner": "$game_runner",
+  "cpu_limit": $json_cpu_val
+}
+EOF
+  # --------------------------------------------------------
+
   source_size=$(du -sb "$WINEPREFIX_DIR" 2>/dev/null | cut -f1)
   [ -z "$source_size" ] && source_size=1
-  estimated_archive_size=$(( source_size * 35 / 100 ))
+  
+  # Estimation affinée et moins optimiste (base de 75% modulée selon le niveau de compression zstd)
+  estimated_percentage=$(( 85 - (LEVEL * 2) ))
+  [ "$estimated_percentage" -lt 40 ] && estimated_percentage=40
+  
+  estimated_archive_size=$(( source_size * estimated_percentage / 100 ))
   [ "$estimated_archive_size" -le 0 ] && estimated_archive_size=1
 
-  # Suppression d'une ancienne archive si elle existe déjà
   rm -f "$archive_path"
 
-  # Fenêtre d'attente / préparation
   (
     echo "20" ; sleep 0.4
     echo "# Analyse du préfixe et allocation de la mémoire..."
@@ -249,18 +258,15 @@ for game_real_name in "${games_to_export[@]}"; do
     --auto-close \
     --no-cancel 2>/dev/null
 
-  # Construction de la commande de compression Zst avec prise en charge du mode ultra
   if [ "$LEVEL" -gt 19 ]; then
     tar_cmd="tar -I \"zstd --ultra -$LEVEL\" -cvf \"$archive_path\" -C \"${GAMES_DIR}\" \"${WINEPREFIX_NAME}\""
   else
     tar_cmd="tar -I \"zstd -$LEVEL\" -cvf \"$archive_path\" -C \"${GAMES_DIR}\" \"${WINEPREFIX_NAME}\""
   fi
 
-  # Lancement de la compression en arrière-plan
   bash -c "$tar_cmd" &
   tar_pid=$!
 
-  # Boucle de suivi par la barre de progression Zenity
   (
     while kill -0 $tar_pid 2>/dev/null; do
       if [ -f "$archive_path" ]; then
@@ -268,9 +274,7 @@ for game_real_name in "${games_to_export[@]}"; do
         [ -z "$current_archive_size" ] && current_archive_size=0
 
         percent=$(( current_archive_size * 100 / estimated_archive_size ))
-        if [ "$percent" -ge 99 ]; then
-          percent=99
-        fi
+        [ "$percent" -ge 99 ] && percent=99
         
         current_mb=$(( current_archive_size / 1024 / 1024 ))
         estimated_mb=$(( estimated_archive_size / 1024 / 1024 ))
@@ -291,6 +295,8 @@ for game_real_name in "${games_to_export[@]}"; do
     --auto-close 2>/dev/null
 
   zenity_status=$?
+
+  rm -f "${WINEPREFIX_DIR}/zgp-meta.json"
 
   if [ $zenity_status -ne 0 ]; then
     pkill -P $tar_pid 2>/dev/null

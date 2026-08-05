@@ -14,7 +14,17 @@ lutris_flatpak_option_file="$HOME/.var/app/net.lutris.Lutris/data/lutris/runners
 lutris_package_option_file="$HOME/.config/lutris/runners/wine.yml"
 
 games_dir="$HOME/Games"
-default_runner="proton-cachyos-x86_64"
+
+# Récupération dynamique du runner par défaut global de Lutris
+default_runner=""
+for runners_path in "$HOME/.local/share/lutris/runners/wine.yml" "$HOME/.var/app/net.lutris.Lutris/data/lutris/runners/wine.yml" "$HOME/.config/lutris/runners/wine.yml"; do
+    if [ -f "$runners_path" ]; then
+        default_runner=$(awk -F': ' '/^\s*version:/ {print $2; exit}' "$runners_path" | tr -d '"''[:space:]')
+        [ -n "$default_runner" ] && break
+    fi
+done
+# Fallback ultime si aucun fichier n'est trouvé
+[ -z "$default_runner" ] && default_runner="proton-cachyos-x86_64"
 
 # Répertoire du script courant pour localiser les autres scripts associés proprement
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -79,19 +89,18 @@ mkdir -p "$(dirname "$lutris_db")"
 
 # ---------------------------------------------------------------------------------------------
 
-# Détermination du dossier de recherche (soit le dossier de l'argument fourni, soit le dossier courant, soit une sélection)
+# Détermination du dossier de recherche
 search_dir="."
-if [ -n "$1" ]; then
+if [ -n "${1:-}" ]; then
     if [ -f "$1" ]; then
         search_dir="$(dirname "$1")"
     else
-        zenity --error --text="Le fichier spécifié est introuvable :\n$1" 2>/dev/null
+        zenity --error --text="Le fichier spécifié est introuvable :
+$1" 2>/dev/null
         exit 1
     fi
 else
-    selected_file=$(zenity --file-selection \
-        --title="Sélectionner un jeu (.zgp)" \
-        --file-filter="Archives ZGP (*.zgp) | *.zgp" 2>/dev/null)
+    selected_file=$(zenity --file-selection         --title="Sélectionner un jeu (.zgp)"         --file-filter="Archives ZGP (*.zgp) | *.zgp" 2>/dev/null)
 
     if [ $? -ne 0 ] || [ -z "$selected_file" ]; then
         exit 0
@@ -108,7 +117,6 @@ if [ ${#zgp_files[@]} -eq 0 ]; then
     exit 0
 fi
 
-# Préparation de la liste Zenity des jeux
 zenity_args=()
 declare -A filepath_by_name
 declare -A runner_by_name
@@ -116,44 +124,58 @@ declare -A cpu_by_name
 
 for file in "${zgp_files[@]}"; do
   filename=$(basename "$file")
-  name=$(basename "$file" .zgp)
-  runner="$default_runner"
+  
+  # Dossier temporaire unique et isolé pour CETTE archive
+  file_meta_dir=$(mktemp -d)
+  
+  # Extraction exclusive du zgp-meta.json de cette archive
+  tar -I zstd -xf "$file" -C "$file_meta_dir" --wildcards "*/zgp-meta.json" 2>/dev/null
+  meta_json=$(find "$file_meta_dir" -type f -name "zgp-meta.json" -print -quit)
+  
+  game_real_name=""
+  extracted_runner=""
   cpu_limit=""
 
-  if [[ "$name" =~ \[(.*?)\] ]]; then
-    bracket_content="${BASH_REMATCH[1]}"
-    name=$(echo "$name" | sed -E 's/\s*\[.*?\]\s*//g')
-    
-    if [[ "$bracket_content" == *,* ]]; then
-      runner=$(echo "$bracket_content" | cut -d',' -f1 | xargs)
-      cpu_limit=$(echo "$bracket_content" | cut -d',' -f2 | xargs)
+  if [ -n "$meta_json" ] && [ -f "$meta_json" ]; then
+    if command -v python3 >/dev/null 2>&1; then
+      game_real_name=$(python3 -c "import json; data=json.load(open('$meta_json')); print(data.get('game_real_name', ''))" 2>/dev/null)
+      extracted_runner=$(python3 -c "import json; data=json.load(open('$meta_json')); print(data.get('game_runner', ''))" 2>/dev/null)
+      cpu_limit=$(python3 -c "import json; data=json.load(open('$meta_json')); print(data.get('cpu_limit') or '')" 2>/dev/null)
     else
-      if [[ "$bracket_content" =~ ^c[0-9]+$ ]]; then
-        cpu_limit="$bracket_content"
-      else
-        runner="$bracket_content"
-      fi
+      game_real_name=$(grep -o '"game_real_name"[[:space:]]*:[[:space:]]*"[^"]*"' "$meta_json" | cut -d'"' -f4)
+      extracted_runner=$(grep -o '"game_runner"[[:space:]]*:[[:space:]]*"[^"]*"' "$meta_json" | cut -d'"' -f4)
+      extracted_c=$(grep -o '"cpu_limit"[[:space:]]*:[[:space:]]*"[^"]*"' "$meta_json" | cut -d'"' -f4)
+      [ -n "$extracted_c" ] && cpu_limit="$extracted_c"
     fi
   fi
-  
-  filepath_by_name["$name"]="$file"
-  runner_by_name["$name"]="$runner"
-  cpu_by_name["$name"]="$cpu_limit"
-  
+
+  # Nettoyage immédiat du dossier temporaire de cette archive
+  rm -rf "$file_meta_dir"
+
+  # Fallback si le JSON est absent ou vide
+  if [ -z "$game_real_name" ]; then
+    game_real_name=$(basename "$file" .zgp)
+  fi
+
+  # Priorité absolue au runner trouvé dans le JSON, sinon runner par défaut de Lutris
+  if [ -n "$extracted_runner" ]; then
+    runner="$extracted_runner"
+  else
+    runner="$default_runner"
+  fi
+
+  filepath_by_name["$game_real_name"]="$file"
+  runner_by_name["$game_real_name"]="$runner"
+  cpu_by_name["$game_real_name"]="$cpu_limit"
+
   display_info="$runner"
   [ -n "$cpu_limit" ] && display_info="$display_info, $cpu_limit"
-  
-  zenity_args+=( "TRUE" "$name" "$display_info" )
+
+  zenity_args+=( "TRUE" "$game_real_name" "$display_info" )
 done
 
 # 4. Fenêtre de sélection des options de raccourcis (cochés par défaut)
-shortcuts_options=$(zenity --list --checklist \
-  --title="Options de création des lanceurs" \
-  --text="Où souhaitez-vous créer les raccourcis ?" \
-  --column="Créer" --column="Emplacement" \
-  TRUE "Menu des applications" \
-  TRUE "Raccourci sur le Bureau" \
-  --width=500 --height=220 2>/dev/null)
+shortcuts_options=$(zenity --list --checklist   --title="Options de création des lanceurs"   --text="Où souhaitez-vous créer les raccourcis ?"   --column="Créer" --column="Emplacement"   TRUE "Menu des applications"   TRUE "Raccourci sur le Bureau"   --width=500 --height=220 2>/dev/null)
 
 create_menu=false
 create_desktop=false
@@ -166,12 +188,7 @@ if [[ "$shortcuts_options" =~ "Raccourci sur le Bureau" ]]; then
 fi
 
 # 5. Affichage de la fenêtre de sélection des jeux avec Checkboxes (élargie)
-selected_games=$(zenity --list --checklist \
-  --title="Zgp-Installer" \
-  --text="Sélectionnez les jeux à importer :" \
-  --column="Installer" --column="Jeu" --column="Configuration" \
-  "${zenity_args[@]}" \
-  --width=700 --height=400 2>/dev/null)
+selected_games=$(zenity --list --checklist   --title="Zgp-Installer"   --text="Sélectionnez les jeux à importer :"   --column="Installer" --column="Jeu" --column="Configuration"   "${zenity_args[@]}"   --width=700 --height=400 2>/dev/null)
 
 if [ -z "$selected_games" ]; then
   exit 0
@@ -232,7 +249,8 @@ for name in "${games_to_install[@]}"; do
         estimated_mb=$(( estimated_uncompressed_size / 1024 / 1024 ))
 
         echo "$percent"
-        echo "# Extraction de $name\nExtraits : ${current_mb} Mo / ~${estimated_mb} Mo estimés"
+        echo "# Extraction de $name
+Extraits : ${current_mb} Mo / ~${estimated_mb} Mo estimés"
       fi
       sleep 0.2
     done
@@ -240,12 +258,7 @@ for name in "${games_to_install[@]}"; do
     echo "100"
     echo "# Finalisation de l'extraction de $name..."
     sleep 0.5
-  ) | zenity --progress \
-    --title="Importation de $name" \
-    --text="Début de l'extraction..." \
-    --percentage=0 \
-    --auto-close \
-    --width=500 2>/dev/null
+  ) | zenity --progress     --title="Importation de $name"     --text="Début de l'extraction..."     --percentage=0     --auto-close     --width=500 2>/dev/null
 
   zenity_status=$?
 
@@ -262,6 +275,9 @@ for name in "${games_to_install[@]}"; do
     zenity --error --text="Une erreur est survenue lors de l'extraction de $name." 2>/dev/null
     exit 1
   fi
+
+  # Nettoyage préventif du zgp-meta.json éventuellement extrait dans le préfixe
+  rm -f "${prefix_dir}/zgp-meta.json"
 
   # 3. Anonymisation inverse (anonuser -> $USER)
   for reg in "system.reg" "user.reg" "userdef.reg" "lutris.json"; do
@@ -328,8 +344,6 @@ wine:
 EOL
 
   # Injection des options système si scripts, gamepad ou limite CPU présents
-  has_system_section=false
-  
   if [ "$preload_script" = true ] || [ "$gamepad" = true ] || [ -n "$cpu_limit" ]; then
     echo "system:" >> "$yml_config_file"
     
