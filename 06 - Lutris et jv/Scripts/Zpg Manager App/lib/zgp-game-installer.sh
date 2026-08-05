@@ -16,6 +16,9 @@ lutris_package_option_file="$HOME/.config/lutris/runners/wine.yml"
 games_dir="$HOME/Games"
 default_runner="proton-cachyos-x86_64"
 
+# Répertoire du script courant pour localiser les autres scripts associés proprement
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 # 1. Vérification des dépendances (sqlite3 et zenity)
 if ! command -v sqlite3 >/dev/null 2>&1; then
   zenity --error --text="Erreur : 'sqlite3' n'est pas installé sur le système." 2>/dev/null || echo "Erreur : sqlite3 manquant."
@@ -76,33 +79,71 @@ mkdir -p "$(dirname "$lutris_db")"
 
 # ---------------------------------------------------------------------------------------------
 
-# Recherche des archives .zgp
+# Détermination du dossier de recherche (soit le dossier de l'argument fourni, soit le dossier courant, soit une sélection)
+search_dir="."
+if [ -n "$1" ]; then
+    if [ -f "$1" ]; then
+        search_dir="$(dirname "$1")"
+    else
+        zenity --error --text="Le fichier spécifié est introuvable :\n$1" 2>/dev/null
+        exit 1
+    fi
+else
+    selected_file=$(zenity --file-selection \
+        --title="Sélectionner un jeu (.zgp)" \
+        --file-filter="Archives ZGP (*.zgp) | *.zgp" 2>/dev/null)
+
+    if [ $? -ne 0 ] || [ -z "$selected_file" ]; then
+        exit 0
+    fi
+    search_dir="$(dirname "$selected_file")"
+fi
+
+# Recherche de tous les fichiers .zgp dans le répertoire identifié
 shopt -s nullglob
-zgp_files=( ./*.zgp )
+zgp_files=("$search_dir"/*.zgp)
+
 if [ ${#zgp_files[@]} -eq 0 ]; then
-  zenity --info --text="Aucun fichier de jeu (.zgp) trouvé dans ce dossier."
-  exit 0
+    zenity --info --text="Aucun fichier de jeu (.zgp) trouvé dans le répertoire." 2>/dev/null
+    exit 0
 fi
 
 # Préparation de la liste Zenity des jeux
 zenity_args=()
-declare -A file_by_name
+declare -A filepath_by_name
 declare -A runner_by_name
+declare -A cpu_by_name
 
 for file in "${zgp_files[@]}"; do
   filename=$(basename "$file")
   name=$(basename "$file" .zgp)
+  runner="$default_runner"
+  cpu_limit=""
+
   if [[ "$name" =~ \[(.*?)\] ]]; then
-    runner="${BASH_REMATCH[1]}"
+    bracket_content="${BASH_REMATCH[1]}"
     name=$(echo "$name" | sed -E 's/\s*\[.*?\]\s*//g')
-  else
-    runner="$default_runner"
+    
+    if [[ "$bracket_content" == *,* ]]; then
+      runner=$(echo "$bracket_content" | cut -d',' -f1 | xargs)
+      cpu_limit=$(echo "$bracket_content" | cut -d',' -f2 | xargs)
+    else
+      if [[ "$bracket_content" =~ ^c[0-9]+$ ]]; then
+        cpu_limit="$bracket_content"
+      else
+        runner="$bracket_content"
+      fi
+    fi
   fi
   
-  file_by_name["$name"]="$filename"
+  filepath_by_name["$name"]="$file"
   runner_by_name["$name"]="$runner"
+  cpu_by_name["$name"]="$cpu_limit"
   
-  zenity_args+=( "TRUE" "$name" "$runner" )
+  display_info="$runner"
+  [ -n "$cpu_limit" ] && display_info="$display_info, $cpu_limit"
+  
+  zenity_args+=( "TRUE" "$name" "$display_info" )
 done
 
 # 4. Fenêtre de sélection des options de raccourcis (cochés par défaut)
@@ -128,7 +169,7 @@ fi
 selected_games=$(zenity --list --checklist \
   --title="Zgp-Installer" \
   --text="Sélectionnez les jeux à importer :" \
-  --column="Installer" --column="Jeu" --column="Runner" \
+  --column="Installer" --column="Jeu" --column="Configuration" \
   "${zenity_args[@]}" \
   --width=700 --height=400 2>/dev/null)
 
@@ -142,33 +183,38 @@ IFS="|" read -r -a games_to_install <<< "$selected_games"
 
 # Traitement de chaque jeu sélectionné
 for name in "${games_to_install[@]}"; do
-  filename="${file_by_name[$name]}"
+  filepath="${filepath_by_name[$name]}"
   runner="${runner_by_name[$name]}"
+  cpu_limit="${cpu_by_name[$name]}"
 
-  # 1. Vérification / Installation du runner via Zgp-Runner-Installer.sh s'il est absent
+  # Génération d'un identifiant unique par itération pour éviter les collisions simultanées
+  slug=$(tar -I zstd -tf "$filepath" | grep '/' | head -n 1 | cut -d'/' -f1)
+  timestamp=$(date +%s%N)
+  config_id="${slug}-${timestamp}"
+  prefix_dir="$games_dir/$slug"
+
+  # 1. Vérification / Installation du runner via Zgr-Runner-Installer.sh s'il est absent
   if [ ! -d "$lutris_runner_dir/$runner" ]; then
-    if [ -f "./Zgp-Runner-Installer.sh" ]; then
-      bash ./Zgp-Runner-Installer.sh "$runner"
+    runner_installer="$SCRIPT_DIR/zgr-runner-installer.sh"
+    [ ! -f "$runner_installer" ] && runner_installer="$SCRIPT_DIR/zgr-runner-installer.sh"
+
+    if [ -f "$runner_installer" ]; then
+      bash "$runner_installer" "$runner"
     else
-      zenity --error --text="Le runner '$runner' est introuvable et le script Zgp-Runner-Installer.sh est absent du dossier courant." 2>/dev/null
+      zenity --error --text="Le runner '$runner' est introuvable et le script d'installation de runner est absent." 2>/dev/null
       exit 1
     fi
   fi
 
   # 2. Extraction du jeu avec calcul de taille estimée et bouton Annuler actif
-  slug=$(tar -I zstd -tf "./$filename" | grep '/' | head -n 1 | cut -d'/' -f1)
-  timestamp=$(date +%s)
-  config_id="${slug}-${timestamp}"
-  prefix_dir="$games_dir/$slug"
-
   mkdir -p "$games_dir"
 
-  archive_size=$(stat -c%s "./$filename" 2>/dev/null || stat -f%z "./$filename" 2>/dev/null)
+  archive_size=$(stat -c%s "$filepath" 2>/dev/null || stat -f%z "$filepath" 2>/dev/null)
   [ -z "$archive_size" ] && archive_size=1
   estimated_uncompressed_size=$(( archive_size * 3 ))
   [ "$estimated_uncompressed_size" -le 0 ] && estimated_uncompressed_size=1
 
-  tar -I zstd -xf "./$filename" -C "$games_dir" &
+  tar -I zstd -xf "$filepath" -C "$games_dir" &
   tar_pid=$!
 
   (
@@ -203,7 +249,6 @@ for name in "${games_to_install[@]}"; do
 
   zenity_status=$?
 
-  # Si l'utilisateur clique sur "Annuler" pendant l'extraction
   if [ $zenity_status -ne 0 ]; then
     pkill -P $tar_pid 2>/dev/null
     kill -9 $tar_pid 2>/dev/null
@@ -251,12 +296,14 @@ for name in "${games_to_install[@]}"; do
 
   rm -f "$lutris_config_dir/${slug}-"*.yml
 
-  # 6. Insertion SQLite
+  # 6. Insertion SQLite sécurisée contre les apostrophes
+  safe_name=$(echo "$name" | sed "s/'/''/g")
+
   sqlite3 "$lutris_db" "DELETE FROM games WHERE slug='$slug';"
   sqlite3 "$lutris_db" <<EOF
 INSERT INTO games (name, slug, installer_slug, parent_slug, runner, executable, directory, configpath, updated, installed, installed_at)
 VALUES (
-  '$name',
+  '$safe_name',
   '$slug',
   '$slug',
   '',
@@ -270,7 +317,7 @@ VALUES (
 );
 EOF
 
-  # 7. Config YML
+  # 7. Config YML avec support CPU
   yml_config_file="$lutris_config_dir/${config_id}.yml"
   cat > "$yml_config_file" <<EOL
 game:
@@ -280,8 +327,22 @@ wine:
   version: $runner
 EOL
 
-  if [ "$preload_script" = true ] || [ "$gamepad" = true ]; then
+  # Injection des options système si scripts, gamepad ou limite CPU présents
+  has_system_section=false
+  
+  if [ "$preload_script" = true ] || [ "$gamepad" = true ] || [ -n "$cpu_limit" ]; then
     echo "system:" >> "$yml_config_file"
+    
+    if [ -n "$cpu_limit" ]; then
+      cpu_num="${cpu_limit#c}"
+      if [ "$cpu_num" = "1" ]; then
+        echo "  single_cpu: true" >> "$yml_config_file"
+      else
+        echo "  limit_cpu_count: '$cpu_num'" >> "$yml_config_file"
+        echo "  single_cpu: true" >> "$yml_config_file"
+      fi
+    fi
+
     if [ "$preload_script" = true ]; then
       echo "  prelaunch_command: $prefix_dir/scripts/start.sh" >> "$yml_config_file"
       echo "  postexit_command: $prefix_dir/scripts/stop.sh" >> "$yml_config_file"
@@ -327,12 +388,10 @@ Categories=Game"
 
   # B. Création sur le Bureau (si coché)
   if [ "$create_desktop" = true ] && [ -d "$desktop_dir" ]; then
-    # 1. Création du lanceur principal du jeu sur le bureau
     echo "$shortcut_content" > "$desktop_dir/${name}.desktop"
     chmod +x "$desktop_dir/${name}.desktop"
     gio set "$desktop_dir/${name}.desktop" metadata::trusted true 2>/dev/null || true
 
-    # 2. Vérification et création du VRAI LIEN SYMBOLIQUE vers le dossier "extras" à la racine du préfixe
     extras_path=""
     if [ -d "$prefix_dir/extras" ]; then
       extras_path="$prefix_dir/extras"
@@ -341,9 +400,7 @@ Categories=Game"
     fi
 
     if [ -n "$extras_path" ]; then
-      # Supprime un éventuel ancien lien ou fichier du même nom avant de le créer
       rm -rf "$desktop_dir/${name} Bonus"
-      # Crée un lien symbolique direct pointant vers le dossier extras à la racine du préfixe
       ln -s "$extras_path" "$desktop_dir/${name} Bonus"
     fi
   fi

@@ -5,6 +5,13 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 OUTPUT_DIR="${HOME}"
 GAMES_DIR="${HOME}/Games"
 user_array=("$USER" "johndoe")
+default_runner="proton-cachyos-x86_64"
+
+# Récupération des arguments optionnels (pour le mode CLI direct)
+# $1 = Nom du dossier du jeu (ex: "skyrim")
+# $2 = Niveau de compression optionnel (de 1 à 22)
+target_game_folder="${1:-}"
+cli_level="${2:-}"
 
 # Vérification de zenity et zstd
 if ! command -v zenity >/dev/null 2>&1; then
@@ -23,84 +30,102 @@ if [ ! -d "$GAMES_DIR" ]; then
   exit 1
 fi
 
-# Chemins possibles de la base de données Lutris
+# Chemins possibles de la base de données et configs Lutris
 lutris_db_path="$HOME/.local/share/lutris/pga.db"
 [ -f "$HOME/.var/app/net.lutris.Lutris/data/lutris/pga.db" ] && lutris_db_path="$HOME/.var/app/net.lutris.Lutris/data/lutris/pga.db"
 
-# 2. Récupération de la liste des dossiers dans ~/Games et association avec le vrai nom du jeu
-shopt -s nullglob
-prefix_dirs=( "$GAMES_DIR"/*/ )
-if [ ${#prefix_dirs[@]} -eq 0 ]; then
-  zenity --info --text="Aucun préfixe de jeu trouvé dans '$GAMES_DIR'." 2>/dev/null
-  exit 0
-fi
+lutris_config_dir="$HOME/.config/lutris/games"
+[ -d "$HOME/.var/app/net.lutris.Lutris/data/lutris/games" ] && lutris_config_dir="$HOME/.var/app/net.lutris.Lutris/data/lutris/games"
 
-zenity_args=()
 declare -A folder_by_name
 
-for dir in "${prefix_dirs[@]}"; do
-  folder_name=$(basename "$dir")
+# 2. Gestion Mode CLI vs Mode Interactif
+if [ -n "$target_game_folder" ]; then
+  # --- MODE CLI ---
+  if [ ! -d "$GAMES_DIR/$target_game_folder" ]; then
+    zenity --error --text="Le dossier de jeu '$target_game_folder' est introuvable dans '$GAMES_DIR'." 2>/dev/null
+    exit 1
+  fi
+  
+  # Recherche du vrai nom du jeu pour l'archive
   game_real_name=""
-
-  # Recherche dans la base de données Lutris
   if command -v sqlite3 >/dev/null 2>&1 && [ -f "$lutris_db_path" ]; then
-    game_real_name=$(sqlite3 "$lutris_db_path" "SELECT name FROM games WHERE slug='$folder_name' LIMIT 1;" 2>/dev/null)
+    game_real_name=$(sqlite3 "$lutris_db_path" "SELECT name FROM games WHERE slug='$target_game_folder' LIMIT 1;" 2>/dev/null)
+  fi
+  [ -z "$game_real_name" ] && game_real_name="$target_game_folder"
+
+  games_to_export=("$game_real_name")
+  folder_by_name["$game_real_name"]="$target_game_folder"
+  LEVEL="${cli_level:-3}"
+
+else
+  # --- MODE INTERACTIF ---
+  shopt -s nullglob
+  prefix_dirs=( "$GAMES_DIR"/*/ )
+  if [ ${#prefix_dirs[@]} -eq 0 ]; then
+    zenity --info --text="Aucun préfixe de jeu trouvé dans '$GAMES_DIR'." 2>/dev/null
+    exit 0
   fi
 
-  # Sinon, on regarde le nom du dossier interne dans drive_c/Games/
-  if [ -z "$game_real_name" ]; then
-    internal_game_dir=$(basename "$dir/drive_c/Games"/*/ 2>/dev/null)
-    if [ -n "$internal_game_dir" ] && [ "$internal_game_dir" != "*" ]; then
-      game_real_name="$internal_game_dir"
+  zenity_args=()
+  for dir in "${prefix_dirs[@]}"; do
+    folder_name=$(basename "$dir")
+    game_real_name=""
+
+    if command -v sqlite3 >/dev/null 2>&1 && [ -f "$lutris_db_path" ]; then
+      game_real_name=$(sqlite3 "$lutris_db_path" "SELECT name FROM games WHERE slug='$folder_name' LIMIT 1;" 2>/dev/null)
+    fi
+
+    if [ -z "$game_real_name" ]; then
+      internal_game_dir=$(basename "$dir/drive_c/Games"/*/ 2>/dev/null)
+      if [ -n "$internal_game_dir" ] && [ "$internal_game_dir" != "*" ]; then
+        game_real_name="$internal_game_dir"
+      fi
+    fi
+
+    [ -z "$game_real_name" ] && game_real_name="$folder_name"
+
+    folder_by_name["$game_real_name"]="$folder_name"
+    zenity_args+=( "FALSE" "$game_real_name" )
+  done
+
+  selected_games=$(zenity --list --checklist \
+    --title="Exportateur de Préfixes Lutris" \
+    --text="Sélectionnez le ou les jeux à exporter :" \
+    --column="Exporter" --column="Nom du Jeu" \
+    "${zenity_args[@]}" \
+    --width=500 --height=400 2>/dev/null)
+
+  if [ -z "$selected_games" ]; then
+    exit 0
+  fi
+
+  IFS="|" read -r -a games_to_export <<< "$selected_games"
+
+  # 3. Demande facultative pour personnaliser le taux de compression
+  LEVEL=3
+  zenity --question \
+    --title="Options de compression" \
+    --text="Personnaliser le taux de compression ?" \
+    --width=400 2>/dev/null
+
+  if [ $? -eq 0 ]; then
+    level_choice=$(zenity --scale \
+      --title="Niveau de compression Zstandard" \
+      --text="Choisissez le niveau de compression :\n(1 = Rapide | 3 = Défaut | 22 = Max/Lent)\n\nAttention : Les niveaux supérieurs à 15 nécessitent beaucoup de RAM." \
+      --min-value=1 \
+      --max-value=22 \
+      --value=3 \
+      --step=1 \
+      --width=400 2>/dev/null)
+    
+    if [ $? -eq 0 ] && [ -n "$level_choice" ]; then
+      LEVEL="$level_choice"
     fi
   fi
-
-  # Fallback ultime sur le nom du dossier si rien d'autre n'est trouvé
-  [ -z "$game_real_name" ] && game_real_name="$folder_name"
-
-  folder_by_name["$game_real_name"]="$folder_name"
-  zenity_args+=( "FALSE" "$game_real_name" )
-done
-
-# Fenêtre de sélection des jeux à exporter (affiche le nom des jeux)
-selected_games=$(zenity --list --checklist \
-  --title="Exportateur de Préfixes Lutris" \
-  --text="Sélectionnez le ou les jeux à exporter :" \
-  --column="Exporter" --column="Nom du Jeu" \
-  "${zenity_args[@]}" \
-  --width=500 --height=400 2>/dev/null)
-
-if [ -z "$selected_games" ]; then
-  exit 0
 fi
 
-IFS="|" read -r -a games_to_export <<< "$selected_games"
-
-# 3. Demande facultative pour personnaliser le taux de compression
-LEVEL=3 # Valeur par défaut
-
-zenity --question \
-  --title="Options de compression" \
-  --text="Personnaliser le taux de compression ?" \
-  --width=400 2>/dev/null
-
-# Si l'utilisateur clique sur "Oui" (code de retour 0)
-if [ $? -eq 0 ]; then
-  level_choice=$(zenity --scale \
-    --title="Niveau de compression Zstandard" \
-    --text="Choisissez le niveau de compression :\n(1 = Rapide | 3 = Défaut | 22 = Max/Lent)\n\nAttention : Les niveaux supérieurs à 15 nécessitent beaucoup de RAM." \
-    --min-value=1 \
-    --max-value=22 \
-    --value=3 \
-    --step=1 \
-    --width=400 2>/dev/null)
-  
-  if [ $? -eq 0 ] && [ -n "$level_choice" ]; then
-    LEVEL="$level_choice"
-  fi
-fi
-
-# 4. Traitement de chaque jeu sélectionné
+# 4. Traitement de chaque jeu sélectionné (Commun aux deux modes)
 for game_real_name in "${games_to_export[@]}"; do
   WINEPREFIX_NAME="${folder_by_name[$game_real_name]}"
   WINEPREFIX_DIR="${GAMES_DIR}/${WINEPREFIX_NAME}"
@@ -109,7 +134,49 @@ for game_real_name in "${games_to_export[@]}"; do
     continue
   fi
 
-  ARCHIVE_NAME="$game_real_name"
+  # Détection du runner et des options CPU utilisés par le jeu dans Lutris
+  game_runner="$default_runner"
+  cpu_limit=""
+
+  if command -v sqlite3 >/dev/null 2>&1 && [ -f "$lutris_db_path" ]; then
+    configpath=$(sqlite3 "$lutris_db_path" "SELECT configpath FROM games WHERE slug='$WINEPREFIX_NAME' LIMIT 1;" 2>/dev/null)
+    if [ -n "$configpath" ] && [ -f "$lutris_config_dir/${configpath}.yml" ]; then
+      yml_file="$lutris_config_dir/${configpath}.yml"
+      
+      # Récupération du runner
+      detected_runner=$(awk -F': ' '/^\s*version:/ {print $2; exit}' "$yml_file" | tr -d '"'\''')
+      [ -n "$detected_runner" ] && game_runner="$detected_runner"
+
+      # Récupération de la limitation CPU (limit_cpu_count ou single_cpu)
+      limit_val=$(awk -F': ' '/^\s*limit_cpu_count:/ {print $2; exit}' "$yml_file" | tr -d '"'\''[:space:]')
+      if [ -n "$limit_val" ]; then
+        cpu_limit="c${limit_val}"
+      else
+        single_val=$(awk -F': ' '/^\s*single_cpu:/ {print $2; exit}' "$yml_file" | tr -d '"'\''[:space:]')
+        if [ "$single_val" = "true" ]; then
+          cpu_limit="c1"
+        fi
+      fi
+    fi
+  fi
+
+  # Construction du contenu des crochets selon le runner et/ou le CPU
+  bracket_content=""
+  if [ "$game_runner" != "$default_runner" ] && [ -n "$cpu_limit" ]; then
+    bracket_content="${game_runner}, ${cpu_limit}"
+  elif [ "$game_runner" != "$default_runner" ]; then
+    bracket_content="${game_runner}"
+  elif [ -n "$cpu_limit" ]; then
+    bracket_content="${cpu_limit}"
+  fi
+
+  # Application finale du nom de l'archive
+  if [ -n "$bracket_content" ]; then
+    ARCHIVE_NAME="${game_real_name} [${bracket_content}]"
+  else
+    ARCHIVE_NAME="$game_real_name"
+  fi
+
   archive_path="${OUTPUT_DIR}/${ARCHIVE_NAME}.zgp"
 
   # Nettoyage et anonymisation du préfixe avant l'export
@@ -168,7 +235,7 @@ for game_real_name in "${games_to_export[@]}"; do
   # Suppression d'une ancienne archive si elle existe déjà
   rm -f "$archive_path"
 
-  # Fenêtre d'attente / préparation (évite l'impression de crash lors d'un niveau élevé)
+  # Fenêtre d'attente / préparation
   (
     echo "20" ; sleep 0.4
     echo "# Analyse du préfixe et allocation de la mémoire..."
@@ -182,7 +249,7 @@ for game_real_name in "${games_to_export[@]}"; do
     --auto-close \
     --no-cancel 2>/dev/null
 
-  # Construction de la commande de compression Zst avec prise en charge du mode ultra (niveaux 20 à 22)
+  # Construction de la commande de compression Zst avec prise en charge du mode ultra
   if [ "$LEVEL" -gt 19 ]; then
     tar_cmd="tar -I \"zstd --ultra -$LEVEL\" -cvf \"$archive_path\" -C \"${GAMES_DIR}\" \"${WINEPREFIX_NAME}\""
   else
@@ -193,7 +260,7 @@ for game_real_name in "${games_to_export[@]}"; do
   bash -c "$tar_cmd" &
   tar_pid=$!
 
-  # Boucle de suivi par la barre de progression Zenity avec affichage de la taille et gestion du bouton Annuler
+  # Boucle de suivi par la barre de progression Zenity
   (
     while kill -0 $tar_pid 2>/dev/null; do
       if [ -f "$archive_path" ]; then
@@ -225,7 +292,6 @@ for game_real_name in "${games_to_export[@]}"; do
 
   zenity_status=$?
 
-  # Si l'utilisateur a cliqué sur "Annuler"
   if [ $zenity_status -ne 0 ]; then
     pkill -P $tar_pid 2>/dev/null
     kill -9 $tar_pid 2>/dev/null

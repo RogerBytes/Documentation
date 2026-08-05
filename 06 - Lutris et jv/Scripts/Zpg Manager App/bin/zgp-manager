@@ -1,0 +1,83 @@
+#!/bin/bash
+
+# --- 1. Détection automatique de l'emplacement des libs (Dev vs Global) ---
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+if [ "$SCRIPT_DIR" = "/usr/local/bin" ]; then
+    # Mode global installé
+    LIB_DIR="/usr/local/lib/zgp-manager"
+else
+    # Mode développement local
+    LIB_DIR="$SCRIPT_DIR/../lib"
+fi
+
+# Vérification de la présence du dossier lib
+if [ ! -d "$LIB_DIR" ]; then
+    zenity --error --text="Erreur critique : Le dossier des bibliothèques (lib) est introuvable à :\n$LIB_DIR" 2>/dev/null
+    exit 1
+fi
+
+# --- 0. Gestion du lancement direct par fichier (Double-clic / MimeType) ---
+if [ -n "$1" ]; then
+    if [ -f "$1" ]; then
+        extension="${1##*.}"
+        case "$extension" in
+            zgp)
+                exec bash "$LIB_DIR/zgp-game-installer.sh" "$1"
+                ;;
+            zgr)
+                exec bash "$LIB_DIR/zgr-runner-installer.sh" "$1"
+                ;;
+            *)
+                zenity --error --text="Extension non prise en charge : *.$extension" 2>/dev/null
+                exit 1
+                ;;
+        esac
+    else
+        zenity --error --text="Le fichier spécifié est introuvable :\n$1" 2>/dev/null
+        exit 1
+    fi
+fi
+
+# --- 2. Boucle principale du Menu (Lancé sans argument) ---
+while true; do
+    # Affichage du menu principal avec Zenity
+    choice=$(zenity --list --radiolist \
+        --title="ZGP Manager - Centre de Contrôle" \
+        --text="Sélectionnez une action à effectuer :" \
+        --column="Choix" --column="Action" \
+        FALSE "🎮 Installer un jeu *.zgp" \
+        FALSE "📦 Empaqueter un jeu (en .zgp)" \
+        FALSE "🗑️ Désinstaller un jeu" \
+        FALSE "⚙️ Installer un runner *.zgr" \
+        FALSE "📦 Empaqueter un runner (en .zgr)" \
+        FALSE "🗑️ Désinstaller un runner" \
+        --width=500 --height=400 2>/dev/null)
+
+    # Si l'utilisateur clique sur Annuler ou ferme la fenêtre
+    if [ $? -ne 0 ] || [ -z "$choice" ]; then
+        exit 0
+    fi
+
+    # --- 3. Aiguillage vers les sous-scripts de lib/ ---
+    case "$choice" in
+        "🎮 Installer un jeu *.zgp")
+            bash "$LIB_DIR/zgp-game-installer.sh"
+            ;;
+        "📦 Empaqueter un jeu (en .zgp)")
+            bash "$LIB_DIR/zgp-game-packer.sh"
+            ;;
+        "🗑️ Désinstaller un jeu")
+            bash "$LIB_DIR/zgp-game-uninstaller.sh"
+            ;;
+        "⚙️ Installer un runner *.zgr")
+            bash "$LIB_DIR/zgr-runner-installer.sh"
+            ;;
+        "📦 Empaqueter un runner (en .zgr)")
+            bash "$LIB_DIR/zgr-runner-packer.sh"
+            ;;
+        "🗑️ Désinstaller un runner")
+            bash "$LIB_DIR/zgr-runner-uninstaller.sh"
+            ;;
+    esac
+done
