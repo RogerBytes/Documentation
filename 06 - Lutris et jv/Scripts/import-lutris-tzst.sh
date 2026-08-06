@@ -19,7 +19,6 @@ default_runner="proton-cachyos-11.0-x86_64"
 declare -A runners_map
 declare -A names_map
 declare -A files_map
-declare -A runners_needed
 
 # 1. Vérification de la commande sqlite3
 if ! command -v sqlite3 >/dev/null 2>&1; then
@@ -97,34 +96,7 @@ for file in "${tzst_files[@]}"; do
   files_map[$index]="$filename"
   names_map[$index]="$name"
   runners_map[$index]="$runner"
-  runners_needed["$runner"]=1
   ((index++))
-done
-
-# ---------------------------------------------------------------------------------------------
-
-# Installation des runners nécessaires
-install_runner_if_needed() {
-  local runner=$1
-  if [ ! -d "$lutris_runner_dir/$runner" ]; then
-    if [ -f "./resources/$runner.tzst" ]; then
-      echo "Extraction du runner $runner depuis les ressources locales..."
-      tar -I zstd -xvf "./resources/$runner.tzst" -C "$lutris_runner_dir" || { echo "Erreur d'extraction de $runner"; exit 1; }
-    else
-      echo "Téléchargement du runner $runner..."
-      temp_dir=$(mktemp -d)
-      wget "https://github.com/RogerBytes/Mintage/releases/download/wine-pkg/$runner.tzst" -O "$temp_dir/$runner.tzst" || { echo "Erreur de téléchargement de $runner."; rm -rf "$temp_dir"; exit 1; }
-      mkdir -p "$lutris_runner_dir"
-      tar -I zstd -xvf "$temp_dir/$runner.tzst" -C "$lutris_runner_dir" || { echo "Erreur d'extraction de $runner."; rm -rf "$temp_dir"; exit 1; }
-      rm -rf "$temp_dir"
-    fi
-  else
-    echo "Le runner \"$runner\" est déjà installé."
-  fi
-}
-
-for runner in "${!runners_needed[@]}"; do
-  install_runner_if_needed "$runner"
 done
 
 # ---------------------------------------------------------------------------------------------
