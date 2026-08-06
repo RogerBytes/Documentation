@@ -139,7 +139,10 @@ total_games=${#games_to_delete[@]}
     echo "# Suppression en cours...\nJeu : $game_name ($current / $total_games)"
 
     game_slug="${slug_by_name[$game_name]}"
-    prefix_dir="${dir_by_name[$game_name]}"
+    
+    # Récupération sécurisée du dossier via le slug pour contrer les problèmes d'apostrophes
+    prefix_dir=$(sqlite3 "$lutris_db" "SELECT directory FROM games WHERE slug='$game_slug';")
+    [ -z "$prefix_dir" ] && prefix_dir="${dir_by_name[$game_name]}"
 
     # A. Suppression du préfixe physique sur le disque
     if [ -d "$prefix_dir" ]; then
@@ -152,14 +155,18 @@ total_games=${#games_to_delete[@]}
     # C. Suppression de l'entrée dans la base de données SQLite
     sqlite3 "$lutris_db" "DELETE FROM games WHERE slug='$game_slug';"
 
-    # D. Suppression des éventuels raccourcis .desktop (Bureau et Applications)
+    # D. Suppression des raccourcis .desktop (Bureau et Applications) et du lien Bonus
     desktop_dir="$HOME/Desktop"
     [ -d "$HOME/Bureau" ] && desktop_dir="$HOME/Bureau"
     
-    rm -f "$desktop_dir/${game_name}.desktop"
+    # Suppression du .desktop du bureau basé sur le slug
+    rm -f "$desktop_dir/${game_slug}.desktop"
+    
+    # Suppression du lien bonus basé sur le vrai nom du jeu
     rm -f "$desktop_dir/${game_name} Bonus"
     
-    find "$HOME/.local/share/applications" -type f -name "*${game_slug}*" -delete 2>/dev/null
+    # Suppression du .desktop du menu des applications basé sur le slug
+    rm -f "$HOME/.local/share/applications/net.lutris.${game_slug}.desktop"
     
     sleep 0.3
   done
@@ -176,5 +183,5 @@ total_games=${#games_to_delete[@]}
   --auto-close \
   --no-cancel 2>/dev/null
 
-notify-send "Désinstallation terminée" "Tous les jeux sélectionnés et leurs préfixes ont été supprimés avec succès." 2>/dev/null
+notify-send "Désinstallation terminée" "Tous les jeux sélectionnés et leurs préfixes ont été supprimés avec succès !" 2>/dev/null
 exit 0

@@ -15,13 +15,16 @@ L'application est minimaliste mais requiert plusieurs dépendances :
 - Python 3
 - Sqlite3
 - Lutris
+- pv
+- grep
+- awk
 
 ### Ubuntu
 
 Sur une Debian / Ubuntu (et dérivées comme Linux Mint)
 
 ```bash
-sudo apt install -y tar zstd curl wget python3 sqlite3
+sudo apt install -y tar zstd curl wget python3 sqlite3 pv
 flatpak install -y flathub net.lutris.Lutris
 ```
 
@@ -34,7 +37,7 @@ Sur cinnamon il faut activer les nouvelles fenêtres lancée d'un terminal
 Sur une Arch Linux (et dérivées comme Manjaro)
 
 ```bash
-sudo pacman -S --needed tar zstd curl wget python sqlite
+sudo pacman -S --needed tar zstd curl wget python sqlite pv
 flatpak install -y flathub net.lutris.Lutris
 ```
 
@@ -43,7 +46,7 @@ flatpak install -y flathub net.lutris.Lutris
 Sur une Fedora (et dérivées comme RHEL)
 
 ```bash
-sudo dnf install -y tar zstd curl wget python3 sqlite
+sudo dnf install -y tar zstd curl wget python3 sqlite pv
 flatpak install -y flathub net.lutris.Lutris
 ```
 
@@ -52,7 +55,7 @@ flatpak install -y flathub net.lutris.Lutris
 Sur une OpenSUSE (et dérivées comme Leap)
 
 ```bash
-sudo zypper install -y tar zstd curl wget python3 sqlite3
+sudo zypper install -y tar zstd curl wget python3 sqlite3 pv
 flatpak install -y flathub net.lutris.Lutris
 ```
 

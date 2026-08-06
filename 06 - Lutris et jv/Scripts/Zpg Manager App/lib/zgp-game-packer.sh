@@ -14,10 +14,9 @@ for runners_path in "${HOME}/.local/share/lutris/runners/wine.yml" "${HOME}/.var
         [ -n "$default_runner" ] && break
     fi
 done
-# Fallback ultime si aucun fichier n'est trouvé
 [ -z "$default_runner" ] && default_runner="proton-cachyos-x86_64"
 
-# Récupération des arguments optionnels (pour le mode CLI direct)
+# Récupération des arguments optionnels (mode CLI direct)
 target_game_folder="${1:-}"
 cli_level="${2:-}"
 
@@ -32,13 +31,11 @@ if ! command -v zstd >/dev/null 2>&1; then
   exit 1
 fi
 
-# 1. Vérifie si le dossier Games existe
 if [ ! -d "$GAMES_DIR" ]; then
   zenity --error --text="Erreur : Le dossier '$GAMES_DIR' n'existe pas." 2>/dev/null
   exit 1
 fi
 
-# Chemins possibles de la base de données et configs Lutris
 lutris_db_path="$HOME/.local/share/lutris/pga.db"
 [ -f "$HOME/.var/app/net.lutris.Lutris/data/lutris/pga.db" ] && lutris_db_path="$HOME/.var/app/net.lutris.Lutris/data/lutris/pga.db"
 
@@ -47,9 +44,8 @@ lutris_config_dir="$HOME/.config/lutris/games"
 
 declare -A folder_by_name
 
-# 2. Gestion Mode CLI vs Mode Interactif
+# Mode CLI vs Mode Interactif
 if [ -n "$target_game_folder" ]; then
-  # --- MODE CLI ---
   if [ ! -d "$GAMES_DIR/$target_game_folder" ]; then
     zenity --error --text="Le dossier de jeu '$target_game_folder' est introuvable dans '$GAMES_DIR'." 2>/dev/null
     exit 1
@@ -64,9 +60,7 @@ if [ -n "$target_game_folder" ]; then
   games_to_export=("$game_real_name")
   folder_by_name["$game_real_name"]="$target_game_folder"
   LEVEL="${cli_level:-3}"
-
 else
-  # --- MODE INTERACTIF ---
   shopt -s nullglob
   prefix_dirs=( "$GAMES_DIR"/*/ )
   if [ ${#prefix_dirs[@]} -eq 0 ]; then
@@ -85,9 +79,7 @@ else
 
     if [ -z "$game_real_name" ]; then
       internal_game_dir=$(basename "$dir/drive_c/Games"/*/ 2>/dev/null)
-      if [ -n "$internal_game_dir" ] && [ "$internal_game_dir" != "*" ]; then
-        game_real_name="$internal_game_dir"
-      fi
+      [ -n "$internal_game_dir" ] && [ "$internal_game_dir" != "*" ] && game_real_name="$internal_game_dir"
     fi
 
     [ -z "$game_real_name" ] && game_real_name="$folder_name"
@@ -103,9 +95,7 @@ else
     "${zenity_args[@]}" \
     --width=500 --height=400 2>/dev/null)
 
-  if [ -z "$selected_games" ]; then
-    exit 0
-  fi
+  [ -z "$selected_games" ] && exit 0
 
   IFS="|" read -r -a games_to_export <<< "$selected_games"
 
@@ -118,64 +108,34 @@ else
   if [ $? -eq 0 ]; then
     level_choice=$(zenity --scale \
       --title="Niveau de compression Zstandard" \
-      --text="Choisissez le niveau de compression :\n(1 = Rapide | 3 = Défaut | 22 = Max/Lent)\n\nAttention : Les niveaux supérieurs à 15 nécessitent beaucoup de RAM." \
-      --min-value=1 \
-      --max-value=22 \
-      --value=3 \
-      --step=1 \
-      --width=400 2>/dev/null)
-    
-    if [ $? -eq 0 ] && [ -n "$level_choice" ]; then
-      LEVEL="$level_choice"
-    fi
+      --text="Choisissez le niveau de compression :\n(1 = Rapide | 3 = Défaut | 22 = Max/Lent)" \
+      --min-value=1 --max-value=22 --value=3 --step=1 --width=400 2>/dev/null)
+    [ $? -eq 0 ] && [ -n "$level_choice" ] && LEVEL="$level_choice"
   fi
 fi
 
-# 4. Traitement de chaque jeu sélectionné
+# Traitement de chaque jeu sélectionné
 for game_real_name in "${games_to_export[@]}"; do
   WINEPREFIX_NAME="${folder_by_name[$game_real_name]}"
   WINEPREFIX_DIR="${GAMES_DIR}/${WINEPREFIX_NAME}"
   
-  if [ ! -d "$WINEPREFIX_DIR" ]; then
-    continue
-  fi
+  [ ! -d "$WINEPREFIX_DIR" ] && continue
 
-  # Détection du runner : par défaut global, écrasé en priorité par le runner spécifique du jeu
   game_runner="$default_runner"
   cpu_limit=""
+  configpath=""
 
   if command -v sqlite3 >/dev/null 2>&1 && [ -f "$lutris_db_path" ]; then
     configpath=$(sqlite3 "$lutris_db_path" "SELECT configpath FROM games WHERE slug='$WINEPREFIX_NAME' LIMIT 1;" 2>/dev/null)
-    if [ -n "$configpath" ] && [ -f "$lutris_config_dir/${configpath}.yml" ]; then
-      yml_file="$lutris_config_dir/${configpath}.yml"
-      
-      # Récupération sécurisée du runner spécifique du jeu (méthode combinée robuste)
-      detected_runner=$(awk '/^wine:/,/^[a-zA-Z]/ {if ($1 == "version:") print $2}' "$yml_file" | tr -d '"'\''[:space:]' | head -n 1)
-      if [ -z "$detected_runner" ]; then
-        detected_runner=$(grep -A 5 "^wine:" "$yml_file" | grep "version:" | head -n 1 | awk -F': ' '{print $2}' | tr -d '"'\''[:space:]')
-      fi
-
-      if [ -n "$detected_runner" ]; then
-        game_runner="$detected_runner"
-      fi
-
-      # Récupération de la limitation CPU
-      limit_val=$(awk -F': ' '/^\s*limit_cpu_count:/ {print $2; exit}' "$yml_file" | tr -d '"'\''[:space:]')
-      if [ -n "$limit_val" ]; then
-        cpu_limit="c${limit_val}"
-      else
-        single_val=$(awk -F': ' '/^\s*single_cpu:/ {print $2; exit}' "$yml_file" | tr -d '"'\''[:space:]')
-        if [ "$single_val" = "true" ]; then
-          cpu_limit="c1"
-        fi
-      fi
-    fi
   fi
 
   ARCHIVE_NAME="$game_real_name"
   archive_path="${OUTPUT_DIR}/${ARCHIVE_NAME}.zgp"
 
-  GAME_DIR=$(basename "$WINEPREFIX_DIR/drive_c/Games"/*/)
+  # Recherche robuste du sous-dossier de jeu interne
+  GAME_DIR=$(basename "$(find "$WINEPREFIX_DIR/drive_c/Games" -maxdepth 1 -mindepth 1 -type d | head -n 1)")
+  [ -z "$GAME_DIR" ] && GAME_DIR="$WINEPREFIX_NAME"
+
   ini_parent_dir="$WINEPREFIX_DIR/drive_c/Games/$GAME_DIR"
   goglog="$ini_parent_dir/goglog.ini"
   lutris_json="${WINEPREFIX_DIR}/lutris.json"
@@ -192,6 +152,7 @@ for game_real_name in "${games_to_export[@]}"; do
     done
   fi
 
+  # Nettoyage des liens symboliques et dossiers temporaires inutiles
   [ -d "${WINEPREFIX_DIR}/dosdevices" ] && rm -rf "${WINEPREFIX_DIR}/dosdevices"
   [ -L "${WINEPREFIX_DIR}/drive_c/users/steamuser" ] && unlink "${WINEPREFIX_DIR}/drive_c/users/steamuser"
   [ -L "${WINEPREFIX_DIR}/drive_c/users/${USER}" ] && unlink "${WINEPREFIX_DIR}/drive_c/users/${USER}"
@@ -205,7 +166,6 @@ for game_real_name in "${games_to_export[@]}"; do
   [ -d "${WINEPREFIX_DIR}/drive_c/ProgramData/Package Cache/" ] && rm -rf -- "${WINEPREFIX_DIR}/drive_c/ProgramData/Package Cache/"*
   [ -d "${WINEPREFIX_DIR}/drive_c/users/steamuser/Temp" ] && rm -rf -- "${WINEPREFIX_DIR}/drive_c/users/steamuser/Temp/"*
   [ -d "${WINEPREFIX_DIR}/drive_c" ] && mkdir -p "${WINEPREFIX_DIR}/drive_c/users/steamuser/Temp"
-  [ -L "${WINEPREFIX_DIR}/drive_c/users/steamuser/AppData/Roaming/Microsoft/Windows/Templates" ] && unlink "${WINEPREFIX_DIR}/drive_c/users/steamuser/AppData/Roaming/Microsoft/Windows/Templates"
 
   find "${WINEPREFIX_DIR}/drive_c" -type l ! -exec test -e {} \; -delete
   find "${WINEPREFIX_DIR}/drive_c" -type l -exec bash -c 'target=$(readlink "{}"); rm "{}"; cp -r "$target" "{}"' \;
@@ -220,23 +180,51 @@ for game_real_name in "${games_to_export[@]}"; do
     fi
   done
 
-  # --- CRÉATION DU FICHIER zgp-meta.json DANS LE PRÉFIXE ---
-  json_cpu_val="null"
-  [ -n "$cpu_limit" ] && json_cpu_val="\"$cpu_limit\""
+  # --- CRÉATION DU FICHIER MÊTA POUR LE VRAI NOM DU JEU ---
+  python3 -c "
+import json
+meta = {'game_real_name': '''$game_real_name'''}
+with open('${WINEPREFIX_DIR}/zgp-meta.json', 'w') as f:
+    json.dump(meta, f)
+" 2>/dev/null
 
-  cat << EOF > "${WINEPREFIX_DIR}/zgp-meta.json"
-{
-  "game_real_name": "$game_real_name",
-  "game_runner": "$game_runner",
-  "cpu_limit": $json_cpu_val
-}
-EOF
-  # --------------------------------------------------------
+  # --- EMBARQUEMENT PROPRE DU YAML LUTRIS (si disponible) ---
+  if [ -n "$configpath" ] && [ -f "$lutris_config_dir/${configpath}.yml" ]; then
+    cp "$lutris_config_dir/${configpath}.yml" "${WINEPREFIX_DIR}/zgp-game-config.yml"
+    
+    # Nettoyage et suppression du champ slug (mais conservation de game_slug)
+    python3 -c "
+import yaml, re
+yml_path = '${WINEPREFIX_DIR}/zgp-game-config.yml'
+try:
+    with open(yml_path, 'r') as f:
+        data = yaml.safe_load(f)
+    if isinstance(data, dict):
+        data.pop('script', None)
+        data.pop('version', None)
+        data.pop('slug', None)
+        
+        def clean_paths(obj):
+            if isinstance(obj, dict):
+                return {k: clean_paths(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [clean_paths(v) for v in obj]
+            elif isinstance(obj, str):
+                return re.sub(r'/home/[^/]+/', '/home/anonuser/', obj)
+            return obj
+            
+        data = clean_paths(data)
+        with open(yml_path, 'w') as f:
+            yaml.dump(data, f, sort_keys=False)
+except Exception as e:
+    print(f'Erreur nettoyage YAML: {e}')
+" 2>/dev/null
+  fi
+  # ---------------------------------------------------------
 
   source_size=$(du -sb "$WINEPREFIX_DIR" 2>/dev/null | cut -f1)
   [ -z "$source_size" ] && source_size=1
   
-  # Estimation affinée et moins optimiste (base de 75% modulée selon le niveau de compression zstd)
   estimated_percentage=$(( 85 - (LEVEL * 2) ))
   [ "$estimated_percentage" -lt 40 ] && estimated_percentage=40
   
@@ -254,9 +242,7 @@ EOF
   ) | zenity --progress \
     --title="Préparation de $ARCHIVE_NAME" \
     --text="Initialisation en cours..." \
-    --percentage=0 \
-    --auto-close \
-    --no-cancel 2>/dev/null
+    --percentage=0 --auto-close --no-cancel 2>/dev/null
 
   if [ "$LEVEL" -gt 19 ]; then
     tar_cmd="tar -I \"zstd --ultra -$LEVEL\" -cvf \"$archive_path\" -C \"${GAMES_DIR}\" \"${WINEPREFIX_NAME}\""
@@ -284,18 +270,18 @@ EOF
       fi
       sleep 0.3
     done
-
     echo "100"
     echo "# Finalisation de l'archive de $ARCHIVE_NAME..."
     sleep 0.5
   ) | zenity --progress \
     --title="Exportation de $ARCHIVE_NAME" \
     --text="Compression du préfixe (Niveau $LEVEL)..." \
-    --percentage=0 \
-    --auto-close 2>/dev/null
+    --percentage=0 --auto-close 2>/dev/null
 
   zenity_status=$?
 
+  # Nettoyage des fichiers temporaires embarqués avant la fin
+  rm -f "${WINEPREFIX_DIR}/zgp-game-config.yml"
   rm -f "${WINEPREFIX_DIR}/zgp-meta.json"
 
   if [ $zenity_status -ne 0 ]; then
