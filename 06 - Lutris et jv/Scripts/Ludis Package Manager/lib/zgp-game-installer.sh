@@ -1,5 +1,16 @@
 #!/bin/bash
 
+# --- Analyse robuste des arguments (CLI, Double-clic et flags) ---
+confirm_flag="$1"
+shift
+cli_targets=("$@")
+is_double_click=false
+
+# Si le premier argument reçu de bin/lpm est vide ou qu'aucun argument de fichier n'est présent
+if [ -z "$confirm_flag" ] && [ ${#cli_targets[@]} -eq 1 ] && [ ! -t 0 ]; then
+    is_double_click=true
+fi
+
 # Configuration des chemins
 lutris_flatpak_db="$HOME/.var/app/net.lutris.Lutris/data/lutris/pga.db"
 lutris_package_db="$HOME/.local/share/lutris/pga.db"
@@ -47,7 +58,8 @@ if check_flatpak_lutris_installed; then
 elif command -v lutris >/dev/null 2>&1; then
   version="package"
 else
-  zenity --error --text="Lutris n'est pas installé sur le système."
+  zenity --error --text="Lutris n'est pas installé sur le système." 2>/dev/null
+  echo "Erreur : Lutris n'est pas installé sur le système."
   exit 1
 fi
 
@@ -74,67 +86,93 @@ fi
 
 mkdir -p "$lutris_config_dir"
 mkdir -p "$(dirname "$lutris_db")"
+mkdir -p "$games_dir"
 
 # ---------------------------------------------------------------------------------------------
 
-# Détermination du dossier de recherche
-search_dir="."
-if [ -n "${1:-}" ]; then
-    if [ -f "$1" ]; then
-        search_dir="$(dirname "$1")"
-    else
-        zenity --error --text="Le fichier spécifié est introuvable :
-$1" 2>/dev/null
-        exit 1
-    fi
-else
-    selected_file=$(zenity --file-selection --title="Sélectionner un jeu (.zgp)" --file-filter="Archives ZGP (*.zgp) | *.zgp" 2>/dev/null)
+games_to_install=()
+declare -A filepath_by_name
+create_menu=false
+create_desktop=false
 
+# Gestion Mode CLI strict vs Mode Interactif / Double-clic
+if [ ${#cli_targets[@]} -gt 0 ] && [ "$is_double_click" = false ]; then
+  # --- MODE CLI STRICT (depuis le terminal avec ou sans -y) ---
+  for target in "${cli_targets[@]}"; do
+    if [ -f "$target" ]; then
+      filename=$(basename "$target" .zgp)
+      games_to_install+=("$filename")
+      filepath_by_name["$filename"]="$target"
+    else
+      echo "Erreur : Fichier introuvable : $target" >&2
+      exit 1
+    fi
+  done
+
+  # Gestion de la confirmation interactive si le flag -y n'est pas présent
+  if [ "$confirm_flag" != "yes" ]; then
+    echo "Jeux à installer :"
+    for name in "${games_to_install[@]}"; do
+      echo " - $name (${filepath_by_name[$name]})"
+    done
+    read -r -p "Êtes-vous sûr de vouloir installer ces jeux ? [O/n] " response
+    case "$response" in
+      [nN][oO]|[nN])
+        echo "Installation annulée."
+        exit 0
+        ;;
+      *)
+        ;;
+    esac
+  fi
+
+  create_menu=true
+  create_desktop=true
+else
+  # --- MODE INTERACTIF / DOUBLE-CLIC (Avec interface graphique Zenity) ---
+  search_dir="."
+  if [ ${#cli_targets[@]} -gt 0 ] && [ "$is_double_click" = true ]; then
+    search_dir="$(dirname "${cli_targets[0]}")"
+  else
+    selected_file=$(zenity --file-selection --title="Sélectionner un jeu (.zgp)" --file-filter="Archives ZGP (*.zgp) | *.zgp" 2>/dev/null)
     if [ $? -ne 0 ] || [ -z "$selected_file" ]; then
         exit 0
     fi
     search_dir="$(dirname "$selected_file")"
-fi
+  fi
 
-# Recherche de tous les fichiers .zgp dans le répertoire identifié
-shopt -s nullglob
-zgp_files=("$search_dir"/*.zgp)
+  shopt -s nullglob
+  zgp_files=("$search_dir"/*.zgp)
 
-if [ ${#zgp_files[@]} -eq 0 ]; then
-    zenity --info --text="Aucun fichier de jeu (.zgp) trouvé dans le répertoire." 2>/dev/null
+  if [ ${#zgp_files[@]} -eq 0 ]; then
+      zenity --info --text="Aucun fichier de jeu (.zgp) trouvé dans le répertoire." 2>/dev/null
+      exit 0
+  fi
+
+  zenity_args=()
+  for file in "${zgp_files[@]}"; do
+    filename=$(basename "$file" .zgp)
+    filepath_by_name["$filename"]="$file"
+    zenity_args+=( "TRUE" "$filename" )
+  done
+
+  shortcuts_options=$(zenity --list --checklist --title="Options de création des lanceurs" --text="Où souhaitez-vous créer les raccourcis ?" --column="Créer" --column="Emplacement" TRUE "Menu des applications" TRUE "Raccourci sur le Bureau" --width=500 --height=220 2>/dev/null)
+
+  if [[ "$shortcuts_options" =~ "Menu des applications" ]]; then
+    create_menu=true
+  fi
+  if [[ "$shortcuts_options" =~ "Raccourci sur le Bureau" ]]; then
+    create_desktop=true
+  fi
+
+  selected_games=$(zenity --list --checklist --title="Zgp-Installer" --text="Sélectionnez les jeux à importer :" --column="Installer" --column="Jeu" "${zenity_args[@]}" --width=600 --height=400 2>/dev/null)
+
+  if [ -z "$selected_games" ]; then
     exit 0
+  fi
+
+  IFS="|" read -r -a games_to_install <<< "$selected_games"
 fi
-
-zenity_args=()
-declare -A filepath_by_name
-
-for file in "${zgp_files[@]}"; do
-  filename=$(basename "$file" .zgp)
-  filepath_by_name["$filename"]="$file"
-  zenity_args+=( "TRUE" "$filename" )
-done
-
-# 4. Fenêtre de sélection des options de raccourcis (cochés par défaut)
-shortcuts_options=$(zenity --list --checklist --title="Options de création des lanceurs" --text="Où souhaitez-vous créer les raccourcis ?" --column="Créer" --column="Emplacement" TRUE "Menu des applications" TRUE "Raccourci sur le Bureau" --width=500 --height=220 2>/dev/null)
-
-create_menu=false
-create_desktop=false
-
-if [[ "$shortcuts_options" =~ "Menu des applications" ]]; then
-  create_menu=true
-fi
-if [[ "$shortcuts_options" =~ "Raccourci sur le Bureau" ]]; then
-  create_desktop=true
-fi
-
-# 5. Affichage de la sélection des jeux
-selected_games=$(zenity --list --checklist --title="Zgp-Installer" --text="Sélectionnez les jeux à importer :" --column="Installer" --column="Jeu" "${zenity_args[@]}" --width=600 --height=400 2>/dev/null)
-
-if [ -z "$selected_games" ]; then
-  exit 0
-fi
-
-IFS="|" read -r -a games_to_install <<< "$selected_games"
 
 # ---------------------------------------------------------------------------------------------
 
@@ -142,23 +180,66 @@ IFS="|" read -r -a games_to_install <<< "$selected_games"
 for name in "${games_to_install[@]}"; do
   filepath="${filepath_by_name[$name]}"
 
-  mkdir -p "$games_dir"
-
-  # Récupération ultra-rapide du slug via la structure interne de l'archive
-  slug=$(tar -I zstd -tf "$filepath" 2>/dev/null | grep '/' | head -n 1 | cut -d'/' -f1)
-  [ -z "$slug" ] && slug=$(echo "$name" | tr '[:upper:]' '[:lower:]' | tr ' ' '-')
-  prefix_dir="$games_dir/$slug"
-
-  # Étape 1 : Décompression avec barre de progression précise grâce à pv
+  # 1. Extraction dans un dossier temporaire DIRECTEMENT dans $games_dir (renommage instantané garanti)
+  temp_extract_dir=$(mktemp -d "$games_dir/.zgp-extract-XXXXXX")
   file_size=$(stat -c %s "$filepath" 2>/dev/null || stat -f %z "$filepath" 2>/dev/null)
 
-  (
-    pv -n -s "$file_size" "$filepath" | tar -I zstd -xf - -C "$games_dir"
-  ) 2>&1 | zenity --progress --title="Importation de $name" --text="Décompression en cours..." --percentage=0 --auto-close --width=500 2>/dev/null
+  if [ ${#cli_targets[@]} -gt 0 ] && [ "$is_double_click" = false ]; then
+    echo "Importation de $name en cours..."
+    pv -s "$file_size" "$filepath" | tar -I zstd -xf - -C "$temp_extract_dir"
+    tar_exit="${PIPESTATUS[1]}"
+  else
+    tar_exit_file=$(mktemp)
+    (
+      pv -n -s "$file_size" "$filepath" | tar -I zstd -xf - -C "$temp_extract_dir"
+      echo "${PIPESTATUS[1]}" > "$tar_exit_file"
+    ) 2>&1 | zenity --progress --title="Importation de $name" --text="Décompression en cours..." --percentage=0 --auto-close --width=500 2>/dev/null
+    tar_exit=$(cat "$tar_exit_file" 2>/dev/null)
+    rm -f "$tar_exit_file"
+    [ -z "$tar_exit" ] && tar_exit=1
+  fi
 
-  # Étape 2 : Traitement post-extraction
-  (
-    echo "# Analyse et configuration de $name..."
+  # 1bis. Vérification de l'intégrité de l'extraction : si tar a échoué (archive corrompue,
+  # tronquée ou invalide), on abandonne proprement ce jeu sans toucher à Lutris ni créer de raccourcis
+  if [ "$tar_exit" -ne 0 ]; then
+    err_msg="Erreur : L'archive de '$name' est corrompue ou invalide (échec de la décompression, code $tar_exit)."
+    if [ ${#cli_targets[@]} -gt 0 ] && [ "$is_double_click" = false ]; then
+      echo "$err_msg" >&2
+    else
+      zenity --error --title="Archive corrompue" --text="$err_msg" 2>/dev/null
+    fi
+    rm -rf "$temp_extract_dir"
+    continue
+  fi
+
+  # 2. Découverte du véritable slug à partir de ce qui a été réellement extrait
+  slug=$(ls -1 "$temp_extract_dir" | head -n 1)
+  if [ -z "$slug" ] || [ ! -d "$temp_extract_dir/$slug" ]; then
+    echo "Erreur critique : Impossible de déterminer le préfixe extrait pour $name." >&2
+    rm -rf "$temp_extract_dir"
+    continue
+  fi
+
+  prefix_dir="$games_dir/$slug"
+
+  # 3. Vérification stricte : si le préfixe existe déjà, on refuse catégoriquement l'installation
+  if [ -d "$prefix_dir" ]; then
+    err_msg="Erreur : Le jeu '$slug' est déjà installé. Veuillez d'abord le désinstaller avant de le réinstaller."
+    if [ ${#cli_targets[@]} -gt 0 ] && [ "$is_double_click" = false ]; then
+      echo "$err_msg" >&2
+    else
+      zenity --error --title="Paquet déjà existant" --text="$err_msg" 2>/dev/null
+    fi
+    rm -rf "$temp_extract_dir"
+    continue
+  fi
+
+  # 4. Déplacement définitif instantané (0 seconde)
+  mv "$temp_extract_dir/$slug" "$games_dir/"
+  rm -rf "$temp_extract_dir"
+
+  run_post_install() {
+    echo "Analyse et configuration de $name..."
 
     timestamp=$(date +%s%N)
     config_id="${slug}-${timestamp}"
@@ -181,7 +262,7 @@ for name in "${games_to_install[@]}"; do
 
     [ -z "$game_real_name" ] && game_real_name="$name"
 
-    echo "# Traitement des registres Windows..."
+    echo "Traitement des registres Windows..."
     for reg in "system.reg" "user.reg" "userdef.reg" "lutris.json"; do
       if [ -f "${prefix_dir}/${reg}" ]; then
         sed -i "s|anonuser|${USER}|g" "${prefix_dir}/${reg}"
@@ -203,17 +284,15 @@ for name in "${games_to_install[@]}"; do
       ln -sf "." "${prefix_dir}/pfx"
     fi
 
-    echo "# Enregistrement dans Lutris..."
+    echo "Enregistrement dans Lutris..."
     safe_name=$(echo "$game_real_name" | sed "s/'/''/g")
     
-    # --- GESTION DU YAML EMBARQUÉ (Sécurisé contre les apostrophes via variables d'environnement) ---
     bundled_yml="$prefix_dir/zgp-game-config.yml"
     yml_config_file="$lutris_config_dir/${config_id}.yml"
 
     executable_path=""
 
     if [ -f "$bundled_yml" ]; then
-      # Extraction propre de l'exécutable via environnement Python
       executable_path=$(BUN_YML="$bundled_yml" python3 -c '
 import os, yaml
 try:
@@ -260,18 +339,14 @@ except Exception as e:
       rm -f "$bundled_yml"
     fi
 
-    # Si le YAML embarqué est absent ou illisible, on signale l'erreur
     if [ ! -f "$yml_config_file" ]; then
       echo "Erreur critique : Le fichier zgp-game-config.yml est introuvable dans l'archive !"
     fi
 
-    # Si le chemin est relatif, on le préfixe avec le préfixe absolu
     if [[ "$executable_path" != /* ]]; then
       executable_path="$prefix_dir/$executable_path"
     fi
-    # ---------------------------------------------------------------------
 
-    # Protection des chemins pour éviter les bugs SQL en présence d'apostrophes
     safe_prefix_dir=$(echo "$prefix_dir" | sed "s/'/''/g")
     safe_executable_path=$(echo "$executable_path" | sed "s/'/''/g")
 
@@ -299,7 +374,7 @@ EOF
       [ -n "$icon_file" ] && icon_path="$icon_file"
     fi
 
-    echo "# Création des raccourcis..."
+    echo "Création des raccourcis..."
     game_id=$(sqlite3 "$lutris_db" "SELECT id FROM games WHERE slug='$slug';")
     desktop_dir="$HOME/Desktop"
     [ -d "$HOME/Bureau" ] && desktop_dir="$HOME/Bureau"
@@ -334,10 +409,18 @@ Categories=Game"
       fi
     fi
 
-    echo "# Finalisation..."
-    sleep 0.3
-  ) | zenity --progress --title="Configuration de $name" --text="Traitement post-extraction..." --pulsate --auto-close --width=500 2>/dev/null
+    echo "Finalisation..."
+  }
+
+  if [ ${#cli_targets[@]} -gt 0 ] && [ "$is_double_click" = false ]; then
+    run_post_install
+  else
+    (
+      run_post_install
+      sleep 0.3
+    ) | zenity --progress --title="Configuration de $name" --text="Traitement post-extraction..." --pulsate --auto-close --width=500 2>/dev/null
+  fi
 done
 
-notify-send "Installation terminée" "Tous les jeux sélectionnés ont été importés avec succès !" 2>/dev/null
+notify-send "Installation terminée" "Tous les jeux valides ont été importés avec succès !" 2>/dev/null
 exit 0

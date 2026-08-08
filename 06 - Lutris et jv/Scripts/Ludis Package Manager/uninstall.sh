@@ -8,19 +8,19 @@ fi
 
 # Définition des chemins de destination utilisés lors de l'installation
 INSTALL_BIN_DIR="/usr/local/bin"
-INSTALL_LIB_DIR="/usr/local/lib/zgp-manager"
+INSTALL_LIB_DIR="/usr/local/lib/lpm"
 APP_DESKTOP_DIR="/usr/share/applications"
-DESKTOP_FILE="$APP_DESKTOP_DIR/zgp-manager.desktop"
-MIME_FILE="/usr/share/mime/packages/zgp-manager.xml"
+DESKTOP_FILE="$APP_DESKTOP_DIR/lpm.desktop"
+MIME_FILE="/usr/share/mime/packages/lpm.xml"
 
-echo "=== Désinstallation de Zgp-Manager ==="
+echo "=== Désinstallation de lpm ==="
 
 # 1. Suppression du binaire principal
-if [ -f "$INSTALL_BIN_DIR/zgp-manager" ]; then
-  rm -f "$INSTALL_BIN_DIR/zgp-manager"
-  echo "[OK] Binaire zgp-manager supprimé de $INSTALL_BIN_DIR"
+if [ -f "$INSTALL_BIN_DIR/lpm" ]; then
+  rm -f "$INSTALL_BIN_DIR/lpm"
+  echo "[OK] Binaire lpm supprimé de $INSTALL_BIN_DIR"
 else
-  echo "[Info] Le binaire zgp-manager n'était pas présent dans $INSTALL_BIN_DIR"
+  echo "[Info] Le binaire lpm n'était pas présent dans $INSTALL_BIN_DIR"
 fi
 
 # 2. Suppression du dossier des bibliothèques
@@ -51,5 +51,5 @@ fi
 
 echo "========================================"
 echo " Désinstallation terminée avec succès !"
-echo " Zgp-Manager a été complètement retiré de votre système."
+echo " lpm a été complètement retiré de votre système."
 echo "========================================"

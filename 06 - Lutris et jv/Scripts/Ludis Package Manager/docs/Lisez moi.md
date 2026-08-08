@@ -1,6 +1,37 @@
-# Zpg Manager
+# Ludis Package Manager
 
-**Zgp Manager** vous permet de sauvegarder vos jeux Wine pour Lutris au format `.zgp` et vos runners au format `.zgr`. Il centralise l'exportation, la gestion et la suppression de vos archives, tandis que l'importation se charge de tout configurer pour que votre jeu soit immédiatement prêt à être lancé.
+**Ludis Package Manager** vous permet de sauvegarder vos jeux Wine pour Lutris au format `.zgp` et vos runners au format `.zgr`. Il centralise l'exportation, la gestion et la suppression de vos archives, tandis que l'importation se charge de tout configurer pour que votre jeu soit immédiatement prêt à être lancé.
+
+## Commandes
+
+<details><summary class="button">🔍 Spoiler</summary><div class="spoiler">
+
+### Jeux
+
+- `lpm install [-y] <fichiers.zgp...>` — Installe un ou plusieurs jeux depuis des paquets `.zgp` (local ou chemin).
+- `lpm uninstall [-y] <slugs...>` — Désinstalle un ou plusieurs jeux (supprime le préfixe, l'entrée Lutris et les raccourcis).
+- `lpm pack [-niveau] <dossiers...>` — Empaquette un ou plusieurs préfixes de jeux en `.zgp` (niveau de compression zstd optionnel, 0 à 22).
+- `lpm list` — Liste les jeux Wine installés (slug puis nom).
+
+### Runners
+
+- `lpm install-runner [-y] <fichiers.zgr|noms...>` — Installe un ou plusieurs runners, depuis un fichier `.zgr` local ou par nom depuis la release GitHub de lpm.
+- `lpm uninstall-runner [-y] <noms...>` — Désinstalle un ou plusieurs runners.
+- `lpm pack-runner [-niveau] <noms...>` — Empaquette un ou plusieurs runners installés en `.zgr`.
+- `lpm list-runner` — Liste les runners actuellement installés.
+- `lpm list-remote-runners` — Liste les runners disponibles sur le dépôt GitHub distant (signale ceux déjà installés).
+
+### Dépendances
+
+- `lpm check` — Analyse les fichiers YAML de tous les jeux installés, compare avec les runners réellement présents, et pour chaque runner manquant tente de le récupérer automatiquement depuis la release GitHub de lpm (avec vérification SHA256). Les runners manquants introuvables sur le dépôt sont listés en fin d'exécution avec leurs jeux dépendants ; il faut alors les installer manuellement via un fichier `.zgr` (`lpm install-runner <fichier>.zgr`) ou via ProtonUp-Qt.
+
+Pour des exemples de commande complets, voir `docs/Tests.md`.
+
+</div></details>
+
+## À faire
+
+- Localisation (fichiers de langue, détection de la langue système, fallback anglais).
 
 ## Dépendances
 

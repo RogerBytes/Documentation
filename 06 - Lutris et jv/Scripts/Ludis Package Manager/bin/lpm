@@ -1,0 +1,189 @@
+#!/bin/bash
+
+# --- 0. Version ---
+readonly LPM_VERSION="v0.9.2"
+
+# --- 1. Détection automatique de l'emplacement des libs (Dev vs Global) ---
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+if [ "$SCRIPT_DIR" = "/usr/local/bin" ]; then
+    LIB_DIR="/usr/local/lib/lpm"
+else
+    LIB_DIR="$SCRIPT_DIR/../lib"
+fi
+
+if [ ! -d "$LIB_DIR" ]; then
+    zenity --error --text="Erreur critique : Le dossier des bibliothèques (lib) est introuvable à :\n$LIB_DIR" 2>/dev/null
+    echo "Erreur critique : Le dossier des bibliothèques (lib) est introuvable à : $LIB_DIR"
+    exit 1
+fi
+
+# --- 1bis. Affichage de la version (--version / -v) ---
+if [ "$1" = "--version" ] || [ "$1" = "-v" ]; then
+    echo "lpm $LPM_VERSION"
+    exit 0
+fi
+
+# --- 1ter. Affichage de l'aide (--help / -h) ---
+if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
+    cat << 'EOF'
+Ludis Package Manager (lpm) — Gestionnaire de jeux et runners Wine pour Lutris
+
+Usage :
+  lpm                                Ouvre le menu graphique (Zenity)
+  lpm <fichier.zgp|.zgr>             Installe directement le fichier (double-clic)
+
+Jeux :
+  lpm install [-y] <fichiers.zgp...>       Installe un ou plusieurs jeux
+  lpm uninstall [-y] <slugs...>            Désinstalle un ou plusieurs jeux
+  lpm pack [-niveau] <dossiers...>         Empaquette un ou plusieurs jeux en .zgp
+  lpm list                                 Liste les jeux installés (slug puis nom)
+
+Runners :
+  lpm install-runner [-y] <fichiers.zgr|noms...>   Installe un ou plusieurs runners
+                                                     (fichier local ou release GitHub)
+  lpm uninstall-runner [-y] <noms...>               Désinstalle un ou plusieurs runners
+  lpm pack-runner [-niveau] <noms...>               Empaquette un ou plusieurs runners en .zgr
+  lpm list-runner                                   Liste les runners installés
+  lpm list-remote-runners                           Liste les runners disponibles sur le dépôt
+                                                     GitHub distant
+
+Dépendances :
+  lpm check                          Vérifie que tous les runners requis par les jeux
+                                      installés sont bien présents, et tente de récupérer
+                                      les manquants depuis le dépôt GitHub de lpm
+
+Options :
+  -y                                 Confirme automatiquement (saute la confirmation interactive)
+  -niveau (0 à 22)                   Niveau de compression zstd pour pack / pack-runner
+  --version, -v                      Affiche la version de lpm
+  --help, -h                         Affiche cette aide
+EOF
+    exit 0
+fi
+
+# --- 2. Gestion du lancement direct par fichier (Double-clic / MimeType) ---
+# Si un seul argument est passé et que c'est un fichier valide existant (ex: double-clic sur un fichier)
+if [ $# -eq 1 ] && [ -f "$1" ]; then
+    extension="${1##*.}"
+    case "$extension" in
+        zgp)
+            exec bash "$LIB_DIR/zgp-game-installer.sh" "" "$1"
+            ;;
+        zgr)
+            exec bash "$LIB_DIR/zgr-runner-installer.sh" "" "$1"
+            ;;
+        *)
+            zenity --error --text="Extension non prise en charge : *.$extension" 2>/dev/null
+            echo "Erreur : Extension non prise en charge : *.$extension"
+            exit 1
+            ;;
+    esac
+fi
+
+# --- 3. Routage des Commandes CLI ---
+if [ $# -gt 0 ]; then
+    command="$1"
+    shift
+
+    confirm_flag=""
+    compression_level=""
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -y)
+                confirm_flag="yes"
+                shift
+                ;;
+            -[0-9]|-[1-2][0-2])
+                compression_level="${1#-}"
+                shift
+                ;;
+            *)
+                break
+                ;;
+        esac
+    done
+
+    case "$command" in
+        install)
+            exec bash "$LIB_DIR/zgp-game-installer.sh" "$confirm_flag" "$@"
+            ;;
+        install-runner)
+            exec bash "$LIB_DIR/zgr-runner-installer.sh" "$confirm_flag" "$@"
+            ;;
+        uninstall)
+            exec bash "$LIB_DIR/zgp-game-uninstaller.sh" "$confirm_flag" "$@"
+            ;;
+        uninstall-runner)
+            exec bash "$LIB_DIR/zgr-runner-uninstaller.sh" "$confirm_flag" "$@"
+            ;;
+        pack)
+            exec bash "$LIB_DIR/zgp-game-packer.sh" "$compression_level" "$@"
+            ;;
+        pack-runner)
+            exec bash "$LIB_DIR/zgr-runner-packer.sh" "$compression_level" "$@"
+            ;;
+        check)
+            exec bash "$LIB_DIR/zgc-dependency-checker.sh" "cli" "$confirm_flag"
+            ;;
+        list)
+            exec bash "$LIB_DIR/zgp-game-lister.sh"
+            ;;
+        list-runner)
+            exec bash "$LIB_DIR/zgr-runner-lister.sh"
+            ;;
+        list-remote-runners)
+            exec bash "$LIB_DIR/zgr-runner-remote-lister.sh"
+            ;;
+        *)
+            echo "Commande inconnue : $command"
+            echo "Utilisez 'lpm --help' ou lancez 'lpm' sans argument pour ouvrir le menu graphique."
+            exit 1
+            ;;
+    esac
+fi
+
+# --- 4. Boucle principale du Menu Graphique (Lancé sans argument) ---
+while true; do
+    choice=$(zenity --list --radiolist \
+        --title="Ludis Package Manager" \
+        --text="Sélectionnez une action à effectuer :" \
+        --column="Choix" --column="Action" \
+        FALSE "🎮 Installer un jeu *.zgp" \
+        FALSE "📦 Empaqueter un jeu (en .zgp)" \
+        FALSE "🗑️ Désinstaller un jeu" \
+        FALSE "⚙️ Installer un runner *.zgr" \
+        FALSE "📦 Empaqueter un runner (en .zgr)" \
+        FALSE "🗑️ Désinstaller un runner" \
+        FALSE "🔍 Vérifier les dépendances (runners)" \
+        --width=500 --height=400 2>/dev/null)
+
+    if [ $? -ne 0 ] || [ -z "$choice" ]; then
+        exit 0
+    fi
+
+    case "$choice" in
+        "🎮 Installer un jeu *.zgp")
+            bash "$LIB_DIR/zgp-game-installer.sh"
+            ;;
+        "📦 Empaqueter un jeu (en .zgp)")
+            bash "$LIB_DIR/zgp-game-packer.sh"
+            ;;
+        "🗑️ Désinstaller un jeu")
+            bash "$LIB_DIR/zgp-game-uninstaller.sh"
+            ;;
+        "⚙️ Installer un runner *.zgr")
+            bash "$LIB_DIR/zgr-runner-installer.sh"
+            ;;
+        "📦 Empaqueter un runner (en .zgr)")
+            bash "$LIB_DIR/zgr-runner-packer.sh"
+            ;;
+        "🗑️ Désinstaller un runner")
+            bash "$LIB_DIR/zgr-runner-uninstaller.sh"
+            ;;
+        "🔍 Vérifier les dépendances (runners)")
+            bash "$LIB_DIR/zgc-dependency-checker.sh" "gui"
+            ;;
+    esac
+done

@@ -8,11 +8,11 @@ fi
 
 # Définition des chemins de destination sur le système
 INSTALL_BIN_DIR="/usr/local/bin"
-INSTALL_LIB_DIR="/usr/local/lib/zgp-manager"
+INSTALL_LIB_DIR="/usr/local/lib/lpm"
 APP_DESKTOP_DIR="/usr/share/applications"
 MIME_DIR="/usr/share/mime/packages"
 
-echo "=== Installation de Zgp-Manager ==="
+echo "=== Installation de lpm ==="
 
 # 1. Création des dossiers de destination
 mkdir -p "$INSTALL_LIB_DIR"
@@ -29,29 +29,29 @@ else
   exit 1
 fi
 
-# 3. Copie et liaison du binaire principal (bin/zgp-manager)
-if [ -f "bin/zgp-manager" ]; then
-  cp bin/zgp-manager "$INSTALL_BIN_DIR/zgp-manager"
-  chmod +x "$INSTALL_BIN_DIR/zgp-manager"
-  echo "[OK] Binaire du manager installé dans $INSTALL_BIN_DIR/zgp-manager"
+# 3. Copie et liaison du binaire principal (bin/lpm)
+if [ -f "bin/lpm" ]; then
+  cp bin/lpm "$INSTALL_BIN_DIR/lpm"
+  chmod +x "$INSTALL_BIN_DIR/lpm"
+  echo "[OK] Binaire du manager installé dans $INSTALL_BIN_DIR/lpm"
 else
-  echo "Erreur : Le fichier 'bin/zgp-manager' est introuvable."
+  echo "Erreur : Le fichier 'bin/lpm' est introuvable."
   exit 1
 fi
 
 # 4. Enregistrement des types MIME (.zgp et .zgr) avec icônes système adaptées
-MIME_FILE="$MIME_DIR/zgp-manager.xml"
+MIME_FILE="$MIME_DIR/lpm.xml"
 
 cat << EOF > "$MIME_FILE"
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="libxslt:shared-mime-info"?>
 <mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
   <mime-type type="application/x-zgp-game">
-    <comment>Jeu Zgp Manager</comment>
+    <comment>Jeu lpm</comment>
     <glob pattern="*.zgp"/>
     <icon name="input-gaming"/>
   </mime-type>
   <mime-type type="application/x-zgr-runner">
-    <comment>Runner Zgp Manager</comment>
+    <comment>Runner lpm</comment>
     <glob pattern="*.zgr"/>
     <icon name="system-run"/>
   </mime-type>
@@ -62,14 +62,14 @@ update-mime-database /usr/share/mime 2>/dev/null || true
 echo "[OK] Types MIME enregistrés avec icônes système."
 
 # 5. Génération du lanceur dans le Menu des applications
-DESKTOP_FILE="$APP_DESKTOP_DIR/zgp-manager.desktop"
+DESKTOP_FILE="$APP_DESKTOP_DIR/lpm.desktop"
 
 cat << EOF > "$DESKTOP_FILE"
 [Desktop Entry]
 Type=Application
-Name=Zgp Manager
+Name=lpm
 Comment=Gestionnaire de paquets et runners pour jeux
-Exec=zgp-manager %f
+Exec=lpm %f
 Icon=input-gaming
 Categories=Game;Utility;
 Terminal=false
@@ -83,5 +83,5 @@ echo "[OK] Lanceur et association de fichiers créés."
 
 echo "========================================"
 echo " Installation terminée avec succès !"
-echo " Tu peux maintenant lancer 'zgp-manager' ou ouvrir directement tes fichiers .zgp / .zgr !"
+echo " Tu peux maintenant lancer 'lpm' ou ouvrir directement tes fichiers .zgp / .zgr !"
 echo "========================================"
