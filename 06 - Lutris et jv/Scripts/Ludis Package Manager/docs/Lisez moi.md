@@ -29,10 +29,6 @@ Pour des exemples de commande complets, voir `docs/Tests.md`.
 
 </div></details>
 
-## À faire
-
-- Localisation (fichiers de langue, détection de la langue système, fallback anglais).
-
 ## Dépendances
 
 <details><summary class="button">🔍 Spoiler</summary><div class="spoiler">
@@ -41,9 +37,10 @@ L'application est minimaliste mais requiert plusieurs dépendances :
 
 - Tar
 - Zstd
+- bsdtar (utilitaire `bsdtar` de la bibliothèque libarchive — utilisé pour l'extraction sécurisée des `.zgp`/`.zgr`, distincte du `tar` GNU classique)
 - Curl
 - Wget
-- Python 3
+- Python 3 (avec le module PyYAML)
 - Sqlite3
 - Lutris
 - pv
@@ -55,7 +52,7 @@ L'application est minimaliste mais requiert plusieurs dépendances :
 Sur une Debian / Ubuntu (et dérivées comme Linux Mint)
 
 ```bash
-sudo apt install -y tar zstd curl wget python3 sqlite3 pv
+sudo apt install -y tar zstd curl wget python3 python3-yaml sqlite3 pv libarchive-tools
 flatpak install -y flathub net.lutris.Lutris
 ```
 
@@ -68,7 +65,7 @@ Sur cinnamon il faut activer les nouvelles fenêtres lancée d'un terminal
 Sur une Arch Linux (et dérivées comme Manjaro)
 
 ```bash
-sudo pacman -S --needed tar zstd curl wget python sqlite pv
+sudo pacman -S --needed tar zstd curl wget python python-yaml sqlite pv bsdtar
 flatpak install -y flathub net.lutris.Lutris
 ```
 
@@ -77,7 +74,7 @@ flatpak install -y flathub net.lutris.Lutris
 Sur une Fedora (et dérivées comme RHEL)
 
 ```bash
-sudo dnf install -y tar zstd curl wget python3 sqlite pv
+sudo dnf install -y tar zstd curl wget python3 python3-pyyaml sqlite pv bsdtar
 flatpak install -y flathub net.lutris.Lutris
 ```
 
@@ -86,9 +83,11 @@ flatpak install -y flathub net.lutris.Lutris
 Sur une OpenSUSE (et dérivées comme Leap)
 
 ```bash
-sudo zypper install -y tar zstd curl wget python3 sqlite3 pv
+sudo zypper install -y tar zstd curl wget python3 python3-PyYAML sqlite3 pv bsdtar
 flatpak install -y flathub net.lutris.Lutris
 ```
+
+> ⚠️ Le paquet `bsdtar` n'est pas officiellement disponible sur certaines versions d'openSUSE Leap (ex. 15.6) au moment de la rédaction. S'il est introuvable via `zypper`, vérifiez sur [software.opensuse.org/package/bsdtar](https://software.opensuse.org/package/bsdtar) la disponibilité pour votre version, ou passez par le dépôt communautaire indiqué sur cette page.
 
 </div></details>
 

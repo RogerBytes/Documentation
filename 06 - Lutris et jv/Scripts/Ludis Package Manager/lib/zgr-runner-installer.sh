@@ -1,148 +1,204 @@
 #!/bin/bash
 
-# --- Analyse robuste des arguments (CLI, Double-clic et flags) ---
-confirm_flag="$1"
-shift
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=./zgl-lang-loader.sh
+source "${script_dir}/zgl-lang-loader.sh"
+# shellcheck source=./zgu-github-release-utils.sh
+source "${script_dir}/zgu-github-release-utils.sh"
+# shellcheck source=./zgu-lutris-utils.sh
+source "${script_dir}/zgu-lutris-utils.sh"
+# shellcheck source=./zgu-progress-utils.sh
+source "${script_dir}/zgu-progress-utils.sh"
+
+# --- Analyse des arguments transmis par bin/lpm ---
+# $1 = mode ("click" = double-clic depuis le gestionnaire de fichiers, "cli" = commande
+#      terminal explicite, vide/absent = menu interactif Zenity sans cible)
+# $2 = confirm_flag ("yes" si -y)
+# $3, $4... = cibles (fichiers .zgr ou noms distants)
+mode="${1:-}"
+shift || true
+confirm_flag="${1:-}"
+shift || true
 cli_targets=("$@")
 is_double_click=false
-
-# Si le premier argument reçu de bin/lpm est vide et qu'une seule cible fichier est présente sans tty
-if [ -z "$confirm_flag" ] && [ ${#cli_targets[@]} -eq 1 ] && [ ! -t 0 ]; then
-    is_double_click=true
-fi
+[[ "${mode}" = "click" ]] && is_double_click=true
 
 # Configuration des chemins des runners Lutris
-lutris_flatpak_runner_dir="$HOME/.var/app/net.lutris.Lutris/data/lutris/runners/wine"
-lutris_package_runner_dir="$HOME/.local/share/lutris/runners/wine"
+lutris_flatpak_runner_dir="${HOME}/.var/app/net.lutris.Lutris/data/lutris/runners/wine"
+lutris_package_runner_dir="${HOME}/.local/share/lutris/runners/wine"
 
-# Constante contenant le lien de la release GitHub
-readonly GITHUB_RELEASE_URL="https://github.com/RogerBytes/Mintage/releases/tag/zgr-pkg"
+# GITHUB_RELEASE_URL est désormais définie dans zgu-github-release-utils.sh (sourcé plus haut),
+# seul endroit à modifier pour changer le dépôt/la release des runners.
 
-# 1. Vérification de zenity et zstd
-if ! command -v zenity >/dev/null 2>&1; then
-  echo "Erreur : 'zenity' n'est pas installé pour l'interface graphique."
+# Tags de source réutilisés (affichage ET comparaisons de logique) - traduits une seule fois
+local_tag="$(t install_runner.source_local)"
+online_tag="$(t install_runner.source_online)"
+browse_label="$(t install_runner.browse_option_label)"
+external_file_tag="$(t install_runner.source_external_file)"
+
+# 1. Vérification de zenity et bsdtar
+# zenity n'est requis que si on va effectivement afficher une fenêtre : c'est le cas
+# partout SAUF en mode CLI strict avec au moins une cible fournie sur la ligne de commande
+# (même logique que dans zgp-game-installer.sh).
+will_use_zenity=true
+if [[ "${mode}" = "cli" ]] && [[ ${#cli_targets[@]} -gt 0 ]]; then
+  will_use_zenity=false
+fi
+if [[ "${will_use_zenity}" = true ]] && ! command -v zenity >/dev/null 2>&1; then
+  t install_runner.zenity_missing
   exit 1
 fi
 
-if ! command -v zstd >/dev/null 2>&1; then
-  zenity --error --text="Erreur : 'zstd' n'est pas installé sur le système." 2>/dev/null || echo "Erreur : zstd manquant."
+# bsdtar (paquet "libarchive-tools" sur Debian/Ubuntu) remplace tar -I zstd pour l'extraction :
+# ses protections par défaut ARCHIVE_EXTRACT_SECURE_NODOTDOT / ARCHIVE_EXTRACT_SECURE_SYMLINKS
+# refusent tout membre d'archive tentant de sortir de son dossier de destination via "../" ou
+# un lien symbolique piégé -- important ici puisqu'un .zgr peut être téléchargé depuis GitHub
+# OU partagé/importé localement (voir mode "browse"), donc potentiellement non fiable dans les
+# deux cas. bsdtar lit le zstd nativement (libzstd liée en dur), zstd externe n'est donc plus
+# nécessaire pour ce script.
+if ! command -v bsdtar >/dev/null 2>&1; then
+  zenity --error --text="$(t install_runner.bsdtar_missing_gui)" 2>/dev/null || t install_runner.bsdtar_missing_fallback
   exit 1
 fi
 
 if ! command -v pv >/dev/null 2>&1; then
-  zenity --error --text="Erreur : 'pv' n'est pas installé sur le système." 2>/dev/null || echo "Erreur : pv manquant."
+  zenity --error --text="$(t install_runner.pv_missing_gui)" 2>/dev/null || t install_runner.pv_missing_fallback
   exit 1
 fi
 
 if ! command -v sha256sum >/dev/null 2>&1; then
-  zenity --error --text="Erreur : 'sha256sum' n'est pas installé sur le système." 2>/dev/null || echo "Erreur : sha256sum manquant."
+  zenity --error --text="$(t install_runner.sha256sum_missing_gui)" 2>/dev/null || t install_runner.sha256sum_missing_fallback
   exit 1
 fi
 
-# 2. Détection Flatpak vs Paquet natif pour les runners
-check_flatpak_lutris_installed() {
-  flatpak list 2>/dev/null | grep -q lutris
-}
-
+# 2. Détection Flatpak vs Paquet natif pour les runners (fonction fournie par zgu-lutris-utils.sh)
 if check_flatpak_lutris_installed; then
   version="flatpak"
-elif [ -d "$HOME/.local/share/lutris/runners/wine" ] || command -v lutris >/dev/null 2>&1; then
+elif check_native_lutris_installed "" "${lutris_package_runner_dir}"; then
   version="package"
 else
-  zenity --error --text="Lutris ne semble pas installé sur le système." 2>/dev/null
-  echo "Erreur : Lutris ne semble pas installé."
+  zenity --error --text="$(t install_runner.lutris_missing_gui)" 2>/dev/null
+  t install_runner.lutris_missing_cli
   exit 1
 fi
 
-case "$version" in
+case "${version}" in
   flatpak)
-    lutris_runner_dir="$lutris_flatpak_runner_dir"
+    lutris_runner_dir="${lutris_flatpak_runner_dir}"
     ;;
   package)
-    lutris_runner_dir="$lutris_package_runner_dir"
+    lutris_runner_dir="${lutris_package_runner_dir}"
+    ;;
+  *)
+    # Ne devrait jamais arriver : $version n'est affecté qu'à "flatpak" ou "package"
+    # ci-dessus (sinon exit 1). Garde-fou si cette invariant venait à changer.
+    echo "Erreur interne : version Lutris inattendue '${version}'." >&2
+    exit 1
     ;;
 esac
 
-mkdir -p "$lutris_runner_dir"
+mkdir -p "${lutris_runner_dir}"
 
-# Fonction propre pour télécharger avec une barre Zenity sécurisée
+# Mince wrapper autour de zgu_gui_download (voir zgu-progress-utils.sh) : pourcentage réel
+# piloté par pv quand la taille de l'asset est connue (voir "size_by_name" plus bas, ajouté
+# pour unifier ce comportement avec zgc-dependency-checker.sh qui l'avait déjà), barre
+# indéterminée sinon (fichier local, pas d'appel réseau).
 download_runner() {
   local url="$1"
   local dest="$2"
   local name="$3"
+  local expected_size="${4:-0}"
 
-  if command -v wget >/dev/null 2>&1; then
-    wget -qO "$dest" "$url" &
-  else
-    curl -sL "$url" -o "$dest" &
+  zgu_gui_download "${url}" "${dest}" "${expected_size}" \
+    "$(t install_runner.download_title "${name}")" \
+    "$(t install_runner.download_connecting)"
+}
+
+# Extrait une archive .zgr avec barre de progression Zenity réelle. Mince wrapper autour de
+# zgu_gui_extract_zstd (voir zgu-progress-utils.sh) : pourcentage réel piloté par pv sur le
+# flux compressé d'entrée, aucun balayage périodique du dossier de sortie (contrairement à
+# l'ancien "du -sb" toutes les 0.2s, coûteux sur un runner volumineux). Factorise le bloc
+# autrefois dupliqué 3 fois (import de masse, import externe, import en ligne).
+# Codes de retour : 0 = succès | 1 = archive corrompue (déjà nettoyée + message affiché)
+#                   2 = annulé par l'utilisateur (déjà nettoyé, PAS de message affiché : au
+#                       caller de décider s'il informe l'utilisateur et/ou s'il quitte)
+extract_runner_with_progress() {
+  local runner_name="$1"
+  local archive_path="$2"
+  local target_dir="${lutris_runner_dir}/${runner_name}"
+
+  zgu_gui_extract_zstd "${archive_path}" "${lutris_runner_dir}" \
+    "$(t install_runner.import_title "${runner_name}")" \
+    "$(t install_runner.extract_start_text)"
+  local status=$?
+
+  if [[ "${status}" -eq 2 ]]; then
+    rm -rf "${target_dir}"
+    return 2
+  elif [[ "${status}" -ne 0 ]]; then
+    zenity --error --title="$(t install_runner.corrupt_archive_title)" --text="$(t install_runner.corrupt_archive_gui "${runner_name}" "${ZGU_LAST_TAR_EXIT:-1}")" 2>/dev/null
+    rm -rf "${target_dir}"
+    return 1
   fi
-  local dl_pid=$!
 
-  (
-    while kill -0 $dl_pid 2>/dev/null; do
-      echo "# Téléchargement de $name en cours..."
-      sleep 0.5
-    done
-  ) | zenity --progress \
-    --title="Téléchargement de $name" \
-    --text="Connexion à GitHub..." \
-    --pulsate \
-    --auto-close \
-    --no-cancel 2>/dev/null
-
-  wait $dl_pid
+  return 0
 }
 
 # ---------------------------------------------------------------------------------------------
 # MODE CLI STRICT (Terminal, une ou plusieurs cibles : paquets locaux .zgr ET/OU noms distants GitHub)
-if [ ${#cli_targets[@]} -gt 0 ] && [ "$is_double_click" = false ]; then
+if [[ ${#cli_targets[@]} -gt 0 ]] && [[ "${is_double_click}" = false ]]; then
   declare -A runner_source   # "local" ou "distant"
   declare -A runner_archive  # chemin local, ou nom de fichier ciblé pour le distant
   runners_to_install=()
   conflicts=()
 
   for target in "${cli_targets[@]}"; do
-    if [ -f "$target" ]; then
-      runner_name=$(basename "$target" .zgr)
-      runner_source["$runner_name"]="local"
-      runner_archive["$runner_name"]="$target"
+    if [[ -f "${target}" ]]; then
+      runner_name=$(basename "${target}" .zgr)
+      runner_source["${runner_name}"]="local"
+      runner_archive["${runner_name}"]="${target}"
     else
-      runner_name="${target%.zgr}"
-      runner_source["$runner_name"]="distant"
-      runner_archive["$runner_name"]="${runner_name}.zgr"
+      # basename() par cohérence défensive avec les autres cibles CLI du projet (jeux,
+      # runners locaux/à supprimer/à empaqueter) : un nom distant ne devrait normalement
+      # jamais matcher un asset GitHub réel s'il contient un séparateur de chemin, mais
+      # on neutralise quand même toute tentative de traversée ("../", chemin absolu...)
+      # avant construction de runner_dir/runner_name plus loin dans ce fichier.
+      runner_name=$(basename -- "${target%.zgr}")
+      runner_source["${runner_name}"]="distant"
+      runner_archive["${runner_name}"]="${runner_name}.zgr"
     fi
 
-    if [ -d "$lutris_runner_dir/$runner_name" ]; then
-      conflicts+=("$runner_name")
+    if [[ -d "${lutris_runner_dir}/${runner_name}" ]]; then
+      conflicts+=("${runner_name}")
     fi
 
-    runners_to_install+=("$runner_name")
+    runners_to_install+=("${runner_name}")
   done
 
   # Vérification stricte : si UN SEUL runner demandé est déjà installé, on annule tout, sans rien installer
-  if [ ${#conflicts[@]} -gt 0 ]; then
-    echo "Erreur : le(s) runner(s) suivant(s) sont déjà installés :" >&2
+  if [[ ${#conflicts[@]} -gt 0 ]]; then
+    t install_runner.conflict_header_cli >&2
     for name in "${conflicts[@]}"; do
-      echo " - $name" >&2
+      t install_runner.conflict_item_cli "${name}" >&2
     done
-    echo "Désinstallez-les d'abord (ou retirez-les de la commande) avant de relancer l'installation. Aucun runner n'a été installé." >&2
+    t install_runner.conflict_hint_cli >&2
     exit 1
   fi
 
   # Confirmation interactive si le flag -y n'est pas présent
-  if [ "$confirm_flag" != "yes" ]; then
-    echo "Runners à installer :"
+  if [[ "${confirm_flag}" != "yes" ]]; then
+    t install_runner.confirm_cli_header
     for name in "${runners_to_install[@]}"; do
-      if [ "${runner_source[$name]}" = "local" ]; then
-        echo " - $name (paquet local : ${runner_archive[$name]})"
+      if [[ "${runner_source[${name}]}" = "local" ]]; then
+        t install_runner.confirm_cli_item_local "${name}" "${runner_archive[${name}]}"
       else
-        echo " - $name (release distante GitHub)"
+        t install_runner.confirm_cli_item_remote "${name}"
       fi
     done
-    read -r -p "Êtes-vous sûr de vouloir installer ces runners ? [O/n] " response
-    case "$response" in
-      [nN][oO]|[nN])
-        echo "Installation annulée."
+    read -r -p "$(t install_runner.confirm_cli_prompt)" response
+    case "${response}" in
+      [nN])
+        t install_runner.cancelled_cli
         exit 0
         ;;
       *)
@@ -153,28 +209,24 @@ if [ ${#cli_targets[@]} -gt 0 ] && [ "$is_double_click" = false ]; then
   # Récupération unique des informations de la release GitHub si au moins un runner distant est demandé
   release_json=""
   for name in "${runners_to_install[@]}"; do
-    if [ "${runner_source[$name]}" = "distant" ]; then
-      api_url=$(echo "$GITHUB_RELEASE_URL" | sed -E 's|https?://github\.com/([^/]+)/([^/]+)/releases/tag/([^/]+)|https://api.github.com/repos/\1/\2/releases/tags/\3|')
-      if command -v curl >/dev/null 2>&1; then
-        release_json=$(curl -s "$api_url")
-      elif command -v wget >/dev/null 2>&1; then
-        release_json=$(wget -qO- "$api_url")
-      fi
+    if [[ "${runner_source[${name}]}" = "distant" ]]; then
+      api_url=$(zgu_github_api_url "${GITHUB_RELEASE_URL}")
+      release_json=$(zgu_fetch_url "${api_url}")
       break
     fi
   done
 
   for runner_name in "${runners_to_install[@]}"; do
-    src="${runner_source[$runner_name]}"
+    src="${runner_source[${runner_name}]}"
 
     expected_digest=""
 
-    if [ "$src" = "local" ]; then
-      archive_path="${runner_archive[$runner_name]}"
-      echo "Installation de '$runner_name' depuis le paquet local..."
+    if [[ "${src}" = "local" ]]; then
+      archive_path="${runner_archive[${runner_name}]}"
+      t install_runner.installing_local_cli "${runner_name}"
     else
-      target_filename="${runner_archive[$runner_name]}"
-      echo "Recherche de '$target_filename' sur la release GitHub..."
+      target_filename="${runner_archive[${runner_name}]}"
+      t install_runner.searching_remote_cli "${target_filename}"
 
       download_url=""
       if command -v python3 >/dev/null 2>&1; then
@@ -191,59 +243,57 @@ try:
             break
 except Exception:
     pass
-' "$release_json" "$target_filename")
+' "${release_json}" "${target_filename}")
         download_url="${asset_info%%|*}"
         expected_digest="${asset_info#*|}"
       fi
 
-      if [ -z "$download_url" ]; then
-        echo "Erreur : Impossible de trouver le runner '$target_filename' sur GitHub." >&2
+      if [[ -z "${download_url}" ]]; then
+        t install_runner.remote_not_found_cli "${target_filename}" >&2
         continue
       fi
 
       temp_cli_dir=$(mktemp -d)
-      archive_path="$temp_cli_dir/${target_filename}"
+      archive_path="${temp_cli_dir}/${target_filename}"
 
-      echo "Téléchargement de '$runner_name' :"
+      t install_runner.downloading_cli "${runner_name}"
       if command -v wget >/dev/null 2>&1; then
-        wget --show-progress -O "$archive_path" "$download_url"
+        wget --show-progress -O "${archive_path}" "${download_url}"
       else
-        curl -L -# -o "$archive_path" "$download_url"
+        curl -Lf -# -o "${archive_path}" "${download_url}"
       fi
 
-      if [ ! -f "$archive_path" ] || [ ! -s "$archive_path" ]; then
-        echo "Erreur : Échec du téléchargement de '$runner_name'." >&2
-        rm -rf "$temp_cli_dir"
+      if [[ ! -f "${archive_path}" ]] || [[ ! -s "${archive_path}" ]]; then
+        t install_runner.download_failed_cli "${runner_name}" >&2
+        rm -rf "${temp_cli_dir}"
         continue
       fi
 
-      if [ -n "$expected_digest" ]; then
-        expected_sha="${expected_digest#sha256:}"
-        actual_sha=$(sha256sum "$archive_path" 2>/dev/null | awk '{print $1}')
-        if [ "$actual_sha" != "$expected_sha" ]; then
-          echo "Erreur : Somme de contrôle SHA256 invalide pour '$runner_name'. Le fichier téléchargé est corrompu ou a été altéré." >&2
-          rm -rf "$temp_cli_dir"
-          continue
-        fi
+      if ! zgu_sha256_matches "${archive_path}" "${expected_digest}"; then
+        t install_runner.checksum_invalid_cli "${runner_name}" >&2
+        rm -rf "${temp_cli_dir}"
+        continue
       fi
     fi
 
-    echo "Décompression de '$runner_name' :"
-    archive_size=$(stat -c%s "$archive_path" 2>/dev/null || stat -f%z "$archive_path" 2>/dev/null)
-    pv -s "${archive_size:-0}" "$archive_path" | tar -I zstd -xf - -C "$lutris_runner_dir"
+    t install_runner.extracting_cli "${runner_name}"
+    archive_size=$(stat -c%s "${archive_path}" 2>/dev/null || stat -f%z "${archive_path}" 2>/dev/null)
+    # bsdtar (et non tar -I zstd) : voir le commentaire sur la vérification des dépendances
+    # plus haut dans ce fichier pour le détail des protections SECURE_NODOTDOT/SECURE_SYMLINKS.
+    pv -s "${archive_size:-0}" "${archive_path}" | bsdtar -xf - -C "${lutris_runner_dir}"
     tar_exit="${PIPESTATUS[1]}"
 
-    [ "$src" = "distant" ] && rm -rf "$temp_cli_dir"
+    [[ "${src}" = "distant" ]] && rm -rf "${temp_cli_dir}"
 
     # Vérification de l'intégrité de l'extraction : si tar a échoué (archive corrompue,
     # tronquée ou invalide), on nettoie ce qui a pu être extrait et on passe au runner suivant
-    if [ "$tar_exit" -ne 0 ]; then
-      echo "Erreur : L'archive de '$runner_name' est corrompue ou invalide (échec de la décompression, code $tar_exit)." >&2
-      rm -rf "$lutris_runner_dir/$runner_name"
+    if [[ "${tar_exit}" -ne 0 ]]; then
+      t install_runner.corrupt_archive_cli "${runner_name}" "${tar_exit}" >&2
+      rm -rf "${lutris_runner_dir:?}/${runner_name}"
       continue
     fi
 
-    echo "Installation de '$runner_name' terminée avec succès !"
+    t install_runner.install_success_cli "${runner_name}"
   done
 
   exit 0
@@ -251,108 +301,63 @@ fi
 
 # ---------------------------------------------------------------------------------------------
 # MODE DOUBLE-CLIC / FICHIER CIBLÉ (Scan UNIQUEMENT du dossier parent du fichier cliqué)
-if [ ${#cli_targets[@]} -eq 1 ] && [ "$is_double_click" = true ] && [ -f "${cli_targets[0]}" ]; then
+if [[ ${#cli_targets[@]} -eq 1 ]] && [[ "${is_double_click}" = true ]] && [[ -f "${cli_targets[0]}" ]]; then
   target_file="${cli_targets[0]}"
-  search_dir="$(dirname "$target_file")"
+  search_dir="$(dirname "${target_file}")"
 
   shopt -s nullglob
-  folder_zgr_files=("$search_dir"/*.zgr)
+  folder_zgr_files=("${search_dir}"/*.zgr)
 
   declare -A mass_file_by_name
   mass_zenity_args=()
 
   for f_path in "${folder_zgr_files[@]}"; do
-    [ -f "$f_path" ] || continue
-    f_name=$(basename "$f_path" .zgr)
+    [[ -f "${f_path}" ]] || continue
+    f_name=$(basename "${f_path}" .zgr)
     
-    if [ -d "$lutris_runner_dir/$f_name" ]; then
+    if [[ -d "${lutris_runner_dir}/${f_name}" ]]; then
       continue
     fi
 
-    mass_file_by_name["$f_name"]="$f_path"
-    mass_zenity_args+=( "TRUE" "$f_name" "[Local]" )
+    mass_file_by_name["${f_name}"]="${f_path}"
+    mass_zenity_args+=( "TRUE" "${f_name}" "${local_tag}" )
   done
 
-  if [ ${#mass_file_by_name[@]} -eq 0 ]; then
-    zenity --info --text="Le runner est déjà installé ou aucun autre fichier .zgr valide n'a été trouvé dans ce dossier." 2>/dev/null
+  if [[ ${#mass_file_by_name[@]} -eq 0 ]]; then
+    zenity --info --text="$(t install_runner.no_other_found_gui)" 2>/dev/null
     exit 0
   fi
 
   selected_mass=$(zenity --list --checklist \
-    --title="Zgr-Runner-Installer (Import de masse)" \
-    --text="Sélectionnez les runners à installer depuis ce dossier :" \
-    --column="Installer" --column="Nom du Runner" --column="Source" \
+    --title="$(t install_runner.mass_import_title)" \
+    --text="$(t install_runner.mass_import_text)" \
+    --column="$(t install_runner.col_install)" --column="$(t install_runner.col_name)" --column="$(t install_runner.col_source)" \
     "${mass_zenity_args[@]}" \
     --width=600 --height=300 2>/dev/null)
 
-  [ -z "$selected_mass" ] && exit 0
-  IFS="|" read -r -a mass_to_install <<< "$selected_mass"
+  [[ -z "${selected_mass}" ]] && exit 0
+  IFS="|" read -r -a mass_to_install <<< "${selected_mass}"
 
   for sub_runner_name in "${mass_to_install[@]}"; do
-    target_runner_dir="$lutris_runner_dir/$sub_runner_name"
-    archive_path="${mass_file_by_name[$sub_runner_name]}"
-    
-    [ -f "$archive_path" ] || continue
+    archive_path="${mass_file_by_name[${sub_runner_name}]}"
+    [[ -f "${archive_path}" ]] || continue
 
-    archive_size=$(stat -c%s "$archive_path" 2>/dev/null || stat -f%z "$archive_path" 2>/dev/null)
-    [ -z "$archive_size" ] && archive_size=1
-    estimated_uncompressed_size=$(( archive_size * 3 ))
-    [ "$estimated_uncompressed_size" -le 0 ] && estimated_uncompressed_size=1
+    extract_runner_with_progress "${sub_runner_name}" "${archive_path}"
+    extract_status=$?
 
-    tar -I zstd -xf "$archive_path" -C "$lutris_runner_dir" &
-    tar_pid=$!
-
-    (
-      while kill -0 $tar_pid 2>/dev/null; do
-        if [ -d "$target_runner_dir" ]; then
-          current_size=$(du -sb "$target_runner_dir" 2>/dev/null | cut -f1)
-          [ -z "$current_size" ] && current_size=0
-
-          percent=$(( current_size * 100 / estimated_uncompressed_size ))
-          if [ "$percent" -ge 99 ]; then
-            percent=99
-          fi
-          
-          current_mb=$(( current_size / 1024 / 1024 ))
-          estimated_mb=$(( estimated_uncompressed_size / 1024 / 1024 ))
-
-          echo "$percent"
-          echo "# Installation de $sub_runner_name\nExtraits : ${current_mb} Mo / ~${estimated_mb} Mo estimés"
-        fi
-        sleep 0.2
-      done
-
-      echo "100"
-      echo "# Finalisation de l'installation de $sub_runner_name..."
-      sleep 0.5
-    ) | zenity --progress \
-      --title="Importation de $sub_runner_name" \
-      --text="Début de l'extraction..." \
-      --percentage=0 \
-      --auto-close \
-      --width=500 2>/dev/null
-
-    zenity_status=$?
-    if [ $zenity_status -ne 0 ]; then
-      pkill -P $tar_pid 2>/dev/null
-      kill -9 $tar_pid 2>/dev/null
-      rm -rf "$target_runner_dir"
-      continue
+    if [[ "${extract_status}" -eq 2 ]]; then
+      # Annulé par l'utilisateur : mêmes sémantiques que le mode "en ligne" plus bas dans
+      # ce fichier. Auparavant, le code retour n'était pas vérifié ici : une annulation en
+      # cours d'extraction passait inaperçue et le lot continuait silencieusement avec le
+      # runner suivant au lieu de s'arrêter.
+      zenity --info --title="$(t install_runner.cancel_title)" --text="$(t install_runner.import_cancelled_text)" 2>/dev/null
+      exit 0
     fi
-
-    wait $tar_pid
-    tar_exit=$?
-
-    # Vérification de l'intégrité de l'extraction : si tar a échoué (archive corrompue,
-    # tronquée ou invalide), on nettoie le dossier partiellement extrait et on passe au runner suivant
-    if [ "$tar_exit" -ne 0 ]; then
-      zenity --error --title="Archive corrompue" --text="Erreur : L'archive de '$sub_runner_name' est corrompue ou invalide (échec de la décompression, code $tar_exit)." 2>/dev/null
-      rm -rf "$target_runner_dir"
-      continue
-    fi
+    # status 1 (archive corrompue) : message déjà affiché par la fonction elle-même,
+    # on continue simplement avec le runner suivant du lot.
   done
 
-  notify-send "Installation terminée" "Tous les runners sélectionnés ont été installés !" 2>/dev/null
+  notify-send "$(t install_runner.notify_title)" "$(t install_runner.notify_body_mass)" 2>/dev/null
   exit 0
 fi
 
@@ -361,15 +366,11 @@ fi
 declare -A source_by_name
 declare -A file_or_url_by_name
 declare -A digest_by_name
+declare -A size_by_name
 
 if command -v curl >/dev/null 2>&1 || command -v wget >/dev/null 2>&1; then
-  api_url=$(echo "$GITHUB_RELEASE_URL" | sed -E 's|https?://github\.com/([^/]+)/([^/]+)/releases/tag/([^/]+)|https://api.github.com/repos/\1/\2/releases/tags/\3|')
-
-  if command -v curl >/dev/null 2>&1; then
-    release_json=$(curl -s "$api_url")
-  else
-    release_json=$(wget -qO- "$api_url")
-  fi
+  api_url=$(zgu_github_api_url "${GITHUB_RELEASE_URL}")
+  release_json=$(zgu_fetch_url "${api_url}")
 
   if command -v python3 >/dev/null 2>&1; then
     parsed_assets=$(python3 -c '
@@ -379,262 +380,160 @@ try:
     for asset in data.get("assets", []):
         name = asset.get("name", "")
         url = asset.get("browser_download_url", "")
+        size = asset.get("size", 0)
         digest = asset.get("digest") or ""
         if name.endswith(".zgr"):
-            print(f"{name}|{url}|{digest}")
+            print(f"{name}|{url}|{size}|{digest}")
 except Exception:
     pass
-' "$release_json")
-    while IFS='|' read -r asset_name download_url asset_digest; do
-      [ -z "$asset_name" ] && continue
+' "${release_json}")
+    while IFS='|' read -r asset_name download_url asset_size asset_digest; do
+      [[ -z "${asset_name}" ]] && continue
       runner_name="${asset_name%.zgr}"
 
-      if [ -d "$lutris_runner_dir/$runner_name" ]; then
+      if [[ -d "${lutris_runner_dir}/${runner_name}" ]]; then
         continue
       fi
 
-      source_by_name["$runner_name"]="[En ligne]"
-      file_or_url_by_name["$runner_name"]="$download_url"
-      digest_by_name["$runner_name"]="$asset_digest"
-    done <<< "$parsed_assets"
+      source_by_name["${runner_name}"]="${online_tag}"
+      file_or_url_by_name["${runner_name}"]="${download_url}"
+      digest_by_name["${runner_name}"]="${asset_digest}"
+      size_by_name["${runner_name}"]="${asset_size}"
+    done <<< "${parsed_assets}"
   fi
 fi
 
 zenity_args=()
 for runner_name in "${!file_or_url_by_name[@]}"; do
-  source_tag="${source_by_name[$runner_name]}"
-  zenity_args+=( "TRUE" "$runner_name" "$source_tag" )
+  source_tag="${source_by_name[${runner_name}]}"
+  zenity_args+=( "TRUE" "${runner_name}" "${source_tag}" )
 done
 
-zenity_args+=( "FALSE" "Parcourir un fichier .zgr..." "[Fichier externe]" )
-file_or_url_by_name["Parcourir un fichier .zgr..."]=""
-source_by_name["Parcourir un fichier .zgr..."]="[Externe]"
+zenity_args+=( "FALSE" "${browse_label}" "${external_file_tag}" )
+file_or_url_by_name["${browse_label}"]=""
 
 selected_runners=$(zenity --list --checklist \
-  --title="Zgr-Installer (En ligne)" \
-  --text="Sélectionnez les runners en ligne à installer :" \
-  --column="Installer" --column="Nom du Runner" --column="Source" \
+  --title="$(t install_runner.online_title)" \
+  --text="$(t install_runner.online_text)" \
+  --column="$(t install_runner.col_install)" --column="$(t install_runner.col_name)" --column="$(t install_runner.col_source)" \
   "${zenity_args[@]}" \
   --width=700 --height=380 2>/dev/null)
 
-if [ -z "$selected_runners" ]; then
+if [[ -z "${selected_runners}" ]]; then
   exit 0
 fi
 
-IFS="|" read -r -a runners_to_install <<< "$selected_runners"
+IFS="|" read -r -a runners_to_install <<< "${selected_runners}"
 temp_dir=$(mktemp -d)
 
 for runner_name in "${runners_to_install[@]}"; do
-  if [ "$runner_name" = "Parcourir un fichier .zgr..." ]; then
-    external_file=$(zenity --file-selection \
-        --title="Sélectionner un runner (.zgr)" \
-        --file-filter="Archives ZGR (*.zgr) | *.zgr" 2>/dev/null)
-    
-    if [ $? -ne 0 ] || [ -z "$external_file" ]; then
+  if [[ "${runner_name}" = "${browse_label}" ]]; then
+    if ! external_file=$(zenity --file-selection \
+        --title="$(t install_runner.file_selection_title)" \
+        --file-filter="$(t install_runner.file_selection_filter_name) (*.zgr) | *.zgr" 2>/dev/null) || [[ -z "${external_file}" ]]; then
       continue
     fi
 
-    ext_dir="$(dirname "$external_file")"
+    ext_dir="$(dirname "${external_file}")"
     
     declare -A ext_file_or_url_by_name
     
     shopt -s nullglob
-    for ext_file in "$ext_dir"/*.zgr; do
-      [ -f "$ext_file" ] || continue
-      ext_filename=$(basename "$ext_file")
+    for ext_file in "${ext_dir}"/*.zgr; do
+      [[ -f "${ext_file}" ]] || continue
+      ext_filename=$(basename "${ext_file}")
       ext_r_name="${ext_filename%.zgr}"
       
-      if [ -d "$lutris_runner_dir/$ext_r_name" ]; then
+      if [[ -d "${lutris_runner_dir}/${ext_r_name}" ]]; then
         continue
       fi
       
-      ext_file_or_url_by_name["$ext_r_name"]="$ext_file"
+      ext_file_or_url_by_name["${ext_r_name}"]="${ext_file}"
     done
 
-    if [ ${#ext_file_or_url_by_name[@]} -eq 0 ] && [ -f "$external_file" ]; then
-      ext_filename=$(basename "$external_file")
+    if [[ ${#ext_file_or_url_by_name[@]} -eq 0 ]] && [[ -f "${external_file}" ]]; then
+      ext_filename=$(basename "${external_file}")
       ext_r_name="${ext_filename%.zgr}"
-      ext_file_or_url_by_name["$ext_r_name"]="$external_file"
+      ext_file_or_url_by_name["${ext_r_name}"]="${external_file}"
     fi
 
-    if [ ${#ext_file_or_url_by_name[@]} -eq 0 ]; then
-      zenity --error --text="Aucun runner .zgr valide trouvé dans ce répertoire." 2>/dev/null
+    if [[ ${#ext_file_or_url_by_name[@]} -eq 0 ]]; then
+      zenity --error --text="$(t install_runner.no_valid_found_gui)" 2>/dev/null
       continue
     fi
 
     ext_zenity_args=()
     for ext_r_name in "${!ext_file_or_url_by_name[@]}"; do
-      ext_zenity_args+=( "TRUE" "$ext_r_name" "[Local]" )
+      ext_zenity_args+=( "TRUE" "${ext_r_name}" "${local_tag}" )
     done
 
     ext_selected_runners=$(zenity --list --checklist \
-      --title="Runners trouvés dans le dossier" \
-      --text="Sélectionnez les runners à installer depuis ce dossier :" \
-      --column="Installer" --column="Nom du Runner" --column="Source" \
+      --title="$(t install_runner.folder_found_title)" \
+      --text="$(t install_runner.mass_import_text)" \
+      --column="$(t install_runner.col_install)" --column="$(t install_runner.col_name)" --column="$(t install_runner.col_source)" \
       "${ext_zenity_args[@]}" \
       --width=600 --height=300 2>/dev/null)
 
-    if [ -z "$ext_selected_runners" ]; then
+    if [[ -z "${ext_selected_runners}" ]]; then
       continue
     fi
 
-    IFS="|" read -r -a ext_runners_to_install <<< "$ext_selected_runners"
+    IFS="|" read -r -a ext_runners_to_install <<< "${ext_selected_runners}"
 
     for sub_runner_name in "${ext_runners_to_install[@]}"; do
-      target_runner_dir="$lutris_runner_dir/$sub_runner_name"
-      archive_path="${ext_file_or_url_by_name[$sub_runner_name]}"
-      
-      archive_size=$(stat -c%s "$archive_path" 2>/dev/null || stat -f%z "$archive_path" 2>/dev/null)
-      [ -z "$archive_size" ] && archive_size=1
-      estimated_uncompressed_size=$(( archive_size * 3 ))
-      [ "$estimated_uncompressed_size" -le 0 ] && estimated_uncompressed_size=1
+      archive_path="${ext_file_or_url_by_name[${sub_runner_name}]}"
+      extract_runner_with_progress "${sub_runner_name}" "${archive_path}"
+      extract_status=$?
 
-      tar -I zstd -xf "$archive_path" -C "$lutris_runner_dir" &
-      tar_pid=$!
-
-      (
-        while kill -0 $tar_pid 2>/dev/null; do
-          if [ -d "$target_runner_dir" ]; then
-            current_size=$(du -sb "$target_runner_dir" 2>/dev/null | cut -f1)
-            [ -z "$current_size" ] && current_size=0
-
-            percent=$(( current_size * 100 / estimated_uncompressed_size ))
-            if [ "$percent" -ge 99 ]; then
-              percent=99
-            fi
-            
-            current_mb=$(( current_size / 1024 / 1024 ))
-            estimated_mb=$(( estimated_uncompressed_size / 1024 / 1024 ))
-
-            echo "$percent"
-            echo "# Installation de $sub_runner_name\nExtraits : ${current_mb} Mo / ~${estimated_mb} Mo estimés"
-          fi
-          sleep 0.2
-        done
-
-        echo "100"
-        echo "# Finalisation de l'installation de $sub_runner_name..."
-        sleep 0.5
-      ) | zenity --progress \
-        --title="Importation de $sub_runner_name" \
-        --text="Début de l'extraction..." \
-        --percentage=0 \
-        --auto-close \
-        --width=500 2>/dev/null
-
-      zenity_status=$?
-      if [ $zenity_status -ne 0 ]; then
-        pkill -P $tar_pid 2>/dev/null
-        kill -9 $tar_pid 2>/dev/null
-        rm -rf "$target_runner_dir"
-        continue
-      fi
-      wait $tar_pid
-      tar_exit=$?
-
-      # Vérification de l'intégrité de l'extraction : si tar a échoué (archive corrompue,
-      # tronquée ou invalide), on nettoie le dossier partiellement extrait et on passe au runner suivant
-      if [ "$tar_exit" -ne 0 ]; then
-        zenity --error --title="Archive corrompue" --text="Erreur : L'archive de '$sub_runner_name' est corrompue ou invalide (échec de la décompression, code $tar_exit)." 2>/dev/null
-        rm -rf "$target_runner_dir"
-        continue
+      if [[ "${extract_status}" -eq 2 ]]; then
+        # Même correctif que pour l'import de masse par double-clic ci-dessus : sans
+        # cette vérification, une annulation ici passait inaperçue et le lot continuait.
+        rm -rf "${temp_dir}"
+        zenity --info --title="$(t install_runner.cancel_title)" --text="$(t install_runner.import_cancelled_text)" 2>/dev/null
+        exit 0
       fi
     done
     continue
   else
-    target_runner_dir="$lutris_runner_dir/$runner_name"
-    source_type="${source_by_name[$runner_name]}"
+    source_type="${source_by_name[${runner_name}]}"
     
-    if [ "$source_type" = "[Local]" ]; then
-      archive_path="${file_or_url_by_name[$runner_name]}"
+    if [[ "${source_type}" = "${local_tag}" ]]; then
+      archive_path="${file_or_url_by_name[${runner_name}]}"
     else
-      download_url="${file_or_url_by_name[$runner_name]}"
-      archive_path="$temp_dir/${runner_name}.zgr"
-      rm -f "$archive_path"
+      download_url="${file_or_url_by_name[${runner_name}]}"
+      archive_path="${temp_dir}/${runner_name}.zgr"
+      rm -f "${archive_path}"
 
-      download_runner "$download_url" "$archive_path" "$runner_name"
+      download_runner "${download_url}" "${archive_path}" "${runner_name}" "${size_by_name[${runner_name}]}"
 
-      if [ ! -f "$archive_path" ] || [ ! -s "$archive_path" ] || ! tar -I zstd -tf "$archive_path" >/dev/null 2>&1; then
-        zenity --error --text="Erreur : Échec du téléchargement ou archive zstd invalide pour $runner_name." 2>/dev/null
+      if [[ ! -f "${archive_path}" ]] || [[ ! -s "${archive_path}" ]] || ! bsdtar -tf "${archive_path}" >/dev/null 2>&1; then
+        zenity --error --text="$(t install_runner.download_or_archive_invalid_gui "${runner_name}")" 2>/dev/null
         continue
       fi
 
-      expected_digest="${digest_by_name[$runner_name]}"
-      if [ -n "$expected_digest" ]; then
-        expected_sha="${expected_digest#sha256:}"
-        actual_sha=$(sha256sum "$archive_path" 2>/dev/null | awk '{print $1}')
-        if [ "$actual_sha" != "$expected_sha" ]; then
-          zenity --error --text="Erreur : Somme de contrôle SHA256 invalide pour '$runner_name'.\nLe fichier téléchargé est corrompu ou a été altéré." 2>/dev/null
-          rm -f "$archive_path"
-          continue
-        fi
+      expected_digest="${digest_by_name[${runner_name}]}"
+      if ! zgu_sha256_matches "${archive_path}" "${expected_digest}"; then
+        zenity --error --text="$(t install_runner.checksum_invalid_gui "${runner_name}")" 2>/dev/null
+        rm -f "${archive_path}"
+        continue
       fi
     fi
   fi
 
-  target_runner_dir="$lutris_runner_dir/$runner_name"
+  extract_runner_with_progress "${runner_name}" "${archive_path}"
+  extract_status=$?
 
-  archive_size=$(stat -c%s "$archive_path" 2>/dev/null || stat -f%z "$archive_path" 2>/dev/null)
-  [ -z "$archive_size" ] && archive_size=1
-  estimated_uncompressed_size=$(( archive_size * 3 ))
-  [ "$estimated_uncompressed_size" -le 0 ] && estimated_uncompressed_size=1
-
-  tar -I zstd -xf "$archive_path" -C "$lutris_runner_dir" &
-  tar_pid=$!
-
-  (
-    while kill -0 $tar_pid 2>/dev/null; do
-      if [ -d "$target_runner_dir" ]; then
-        current_size=$(du -sb "$target_runner_dir" 2>/dev/null | cut -f1)
-        [ -z "$current_size" ] && current_size=0
-
-        percent=$(( current_size * 100 / estimated_uncompressed_size ))
-        if [ "$percent" -ge 99 ]; then
-          percent=99
-        fi
-        
-        current_mb=$(( current_size / 1024 / 1024 ))
-        estimated_mb=$(( estimated_uncompressed_size / 1024 / 1024 ))
-
-        echo "$percent"
-        echo "# Installation de $runner_name\nExtraits : ${current_mb} Mo / ~${estimated_mb} Mo estimés"
-      fi
-      sleep 0.2
-    done
-
-    echo "100"
-    echo "# Finalisation de l'installation de $runner_name..."
-    sleep 0.5
-  ) | zenity --progress \
-    --title="Importation de $runner_name" \
-    --text="Début de l'extraction..." \
-    --percentage=0 \
-    --auto-close \
-    --width=500 2>/dev/null
-
-  zenity_status=$?
-
-  if [ $zenity_status -ne 0 ]; then
-    pkill -P $tar_pid 2>/dev/null
-    kill -9 $tar_pid 2>/dev/null
-    rm -rf "$target_runner_dir"
-    rm -rf "$temp_dir"
-    zenity --info --title="Annulation" --text="L'importation a été annulée." 2>/dev/null
+  if [[ "${extract_status}" -eq 2 ]]; then
+    # Annulé par l'utilisateur dans la barre de progression : ici on quitte complètement
+    # (contrairement aux autres modes d'import où on passe simplement au runner suivant)
+    rm -rf "${temp_dir}"
+    zenity --info --title="$(t install_runner.cancel_title)" --text="$(t install_runner.import_cancelled_text)" 2>/dev/null
     exit 0
-  fi
-
-  wait $tar_pid
-  tar_exit=$?
-
-  # Vérification de l'intégrité de l'extraction : si tar a échoué (archive corrompue,
-  # tronquée ou invalide), on nettoie le dossier partiellement extrait et on passe au runner suivant
-  if [ "$tar_exit" -ne 0 ]; then
-    zenity --error --title="Archive corrompue" --text="Erreur : L'archive de '$runner_name' est corrompue ou invalide (échec de la décompression, code $tar_exit)." 2>/dev/null
-    rm -rf "$target_runner_dir"
+  elif [[ "${extract_status}" -ne 0 ]]; then
     continue
   fi
 done
 
-rm -rf "$temp_dir"
-notify-send "Installation terminée" "Tous les runners sélectionnés ont été installés avec succès !" 2>/dev/null
+rm -rf "${temp_dir}"
+notify-send "$(t install_runner.notify_title)" "$(t install_runner.notify_body_final)" 2>/dev/null
 exit 0

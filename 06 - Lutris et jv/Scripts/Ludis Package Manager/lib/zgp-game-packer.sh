@@ -9,347 +9,400 @@ cli_games=("$@")
 
 # Configuration des chemins et variables de base
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=./zgl-lang-loader.sh
+source "${script_dir}/zgl-lang-loader.sh"
+# shellcheck source=./zgu-lutris-utils.sh
+source "${script_dir}/zgu-lutris-utils.sh"
+# shellcheck source=./zgu-progress-utils.sh
+source "${script_dir}/zgu-progress-utils.sh"
+
 OUTPUT_DIR="${HOME}"
+
+# Configuration des chemins Lutris (Flatpak vs paquet natif), avec la même détection que
+# tous les autres scripts de lib/ (via zgu-lutris-utils.sh) plutôt que le test d'existence
+# de fichiers résiduels utilisé auparavant ici, qui pouvait lire la mauvaise base de
+# données si un ancien profil Flatpak ou natif traînait encore sur le disque.
+lutris_flatpak_db="${HOME}/.var/app/net.lutris.Lutris/data/lutris/pga.db"
+lutris_package_db="${HOME}/.local/share/lutris/pga.db"
+
+lutris_flatpak_config_dir="${HOME}/.var/app/net.lutris.Lutris/data/lutris/games"
+lutris_package_config_dir="${HOME}/.config/lutris/games"
+
+lutris_flatpak_system_file="${HOME}/.var/app/net.lutris.Lutris/data/lutris/system.yml"
+lutris_package_system_file="${HOME}/.config/lutris/system.yml"
+
 GAMES_DIR="${HOME}/Games"
-user_array=("$USER" "johndoe")
 
-# Récupération dynamique du runner par défaut global de Lutris
-default_runner=""
-for runners_path in "${HOME}/.local/share/lutris/runners/wine.yml" "${HOME}/.var/app/net.lutris.Lutris/data/lutris/runners/wine.yml"; do
-    if [ -f "$runners_path" ]; then
-        default_runner=$(awk -F': ' '/^\s*version:/ {print $2; exit}' "$runners_path" | tr -d '"'\''[:space:]')
-        [ -n "$default_runner" ] && break
-    fi
-done
-[ -z "$default_runner" ] && default_runner="proton-cachyos-x86_64"
-
-# Vérification de zstd (toujours requis)
-if ! command -v zstd >/dev/null 2>&1; then
-  echo "Erreur : 'zstd' n'est pas installé sur le système." >&2
+if check_flatpak_lutris_installed; then
+  lutris_db_path="${lutris_flatpak_db}"
+  lutris_config_dir="${lutris_flatpak_config_dir}"
+  lutris_system_file="${lutris_flatpak_system_file}"
+elif check_native_lutris_installed "${lutris_package_db}" ""; then
+  lutris_db_path="${lutris_package_db}"
+  lutris_config_dir="${lutris_package_config_dir}"
+  lutris_system_file="${lutris_package_system_file}"
+else
+  # Détection explicite (alignée sur les autres scripts de lib/) plutôt que le repli
+  # silencieux vers les chemins natifs utilisé auparavant ici : sans Lutris installé,
+  # l'utilisateur obtenait un message "dossier introuvable" plus tard dans le script,
+  # bien moins clair que la vraie cause.
+  if [[ ${#cli_games[@]} -gt 0 ]]; then
+    t pack_game.lutris_missing_cli >&2
+  else
+    zenity --error --text="$(t pack_game.lutris_missing_gui)" 2>/dev/null
+  fi
   exit 1
 fi
 
-if [ ! -d "$GAMES_DIR" ]; then
-  if [ ${#cli_games[@]} -gt 0 ]; then
-    echo "Erreur : Le dossier '$GAMES_DIR' n'existe pas." >&2
+# Chemin Games personnalisé (si défini dans Lutris) : même lecture dynamique que dans
+# zgp-game-installer.sh et zgp-game-uninstaller.sh. Cette préférence globale vit dans
+# system.yml ("system: game_path:"), PAS dans runners/wine.yml (qui ne contient que des
+# options propres au runner Wine, comme system_winetricks/version) -- erreur initialement
+# commise ici (et dans installer/uninstaller) en supposant le mauvais fichier.
+if [[ -f "${lutris_system_file}" ]]; then
+  extracted_path=$(awk -F': ' '/^[[:space:]]*game_path:/ {print $2}' "${lutris_system_file}")
+  [[ -n "${extracted_path}" ]] && GAMES_DIR="${extracted_path}"
+fi
+
+# Anonymise tout chemin utilisateur (Windows "Users\\<nom>\\" / "Users\<nom>\" et
+# POSIX "/home/<nom>/") vers "anonuser", quel que soit le nom d'utilisateur rencontré.
+# Remplace l'ancienne liste figée (user_array=("$USER" "johndoe")) : celle-ci ne
+# scrubait QUE les noms explicitement listés, donc silencieusement rien pour tout
+# autre nom d'utilisateur (ancien testeur, autre machine, .reg hérité...). Le YAML
+# embarqué était déjà nettoyé dynamiquement de cette façon (voir plus bas dans ce
+# fichier) ; ce n'était pas le cas pour les .reg / goglog.ini / lutris.json.
+anonymize_user_paths() {
+  local f="$1"
+  [[ -f "${f}" ]] || return 0
+  # Chemins Windows échappés dans les .reg ("Users\\\\<nom>\\\\") et non échappés
+  sed -i -E 's#([Uu]sers\\\\)[^\\"'"'"']+(\\\\)#\1anonuser\2#g' "${f}"
+  sed -i -E 's#([Uu]sers\\)[^\\"'"'"']+(\\)#\1anonuser\2#g' "${f}"
+  # Chemins POSIX ("/home/<nom>/")
+  sed -i -E 's#(/home/)[^/"'"'"']+(/)#\1anonuser\2#g' "${f}"
+  # Filet de sécurité : le $USER courant, même hors contexte de chemin
+  sed -i "s|${USER}|anonuser|g" "${f}"
+}
+
+# Récupération dynamique du runner par défaut global de Lutris (fonction partagée,
+# voir zgu-lutris-utils.sh)
+default_runner=$(zgu_get_default_runner)
+
+# Vérification de zstd (toujours requis)
+if ! command -v zstd >/dev/null 2>&1; then
+  t pack_game.zstd_missing >&2
+  exit 1
+fi
+
+# Le module PyYAML est requis pour nettoyer/réécrire le YAML Lutris embarqué dans le .zgp.
+# Sans lui, le paquet pouvait être créé avec un zgp-game-config.yml non nettoyé (chemins
+# absolus, version de runner manquante) sans qu'aucune erreur ne soit visible.
+if ! python3 -c "import yaml" >/dev/null 2>&1; then
+  if [[ ${#cli_games[@]} -gt 0 ]]; then
+    t pack_game.pyyaml_missing_cli >&2
+  else
+    zenity --error --text="$(t pack_game.pyyaml_missing_gui)" 2>/dev/null
+  fi
+  exit 1
+fi
+
+if [[ ! -d "${GAMES_DIR}" ]]; then
+  if [[ ${#cli_games[@]} -gt 0 ]]; then
+    t pack_game.games_dir_missing "${GAMES_DIR}" >&2
     exit 1
   else
-    zenity --error --text="Erreur : Le dossier '$GAMES_DIR' n'existe pas." 2>/dev/null
+    zenity --error --text="$(t pack_game.games_dir_missing "${GAMES_DIR}")" 2>/dev/null
     exit 1
   fi
 fi
-
-lutris_db_path="$HOME/.local/share/lutris/pga.db"
-[ -f "$HOME/.var/app/net.lutris.Lutris/data/lutris/pga.db" ] && lutris_db_path="$HOME/.var/app/net.lutris.Lutris/data/lutris/pga.db"
-
-lutris_config_dir="$HOME/.config/lutris/games"
-[ -d "$HOME/.var/app/net.lutris.Lutris/data/lutris/games" ] && lutris_config_dir="$HOME/.var/app/net.lutris.Lutris/data/lutris/games"
 
 declare -A folder_by_name
 games_to_export=()
 
 # --- Mode CLI vs Mode Interactif ---
-if [ ${#cli_games[@]} -gt 0 ]; then
+if [[ ${#cli_games[@]} -gt 0 ]]; then
   # --- MODE CLI (Pas de Zenity, 100% Terminal) ---
   LEVEL="${compression_arg:-3}"
   
-  for target_game_folder in "${cli_games[@]}"; do
-    if [ ! -d "$GAMES_DIR/$target_game_folder" ]; then
-      echo "Erreur : Le dossier de jeu '$target_game_folder' est introuvable dans '$GAMES_DIR'." >&2
+  for target_game_folder_raw in "${cli_games[@]}"; do
+    # basename() neutralise toute tentative de traversée de chemin ("../", chemin absolu...)
+    # dans un nom de dossier de jeu fourni en CLI : sans cela, un nom comme "../../home/user"
+    # aurait pu faire lire/archiver un dossier arbitraire du système en dehors de GAMES_DIR.
+    target_game_folder=$(basename -- "${target_game_folder_raw}")
+    if [[ ! -d "${GAMES_DIR}/${target_game_folder}" ]]; then
+      t pack_game.folder_not_found_cli "${target_game_folder_raw}" "${GAMES_DIR}" >&2
       exit 1
     fi
     
     game_real_name=""
-    if command -v sqlite3 >/dev/null 2>&1 && [ -f "$lutris_db_path" ]; then
-      game_real_name=$(sqlite3 "$lutris_db_path" "SELECT name FROM games WHERE slug='$target_game_folder' LIMIT 1;" 2>/dev/null)
+    if command -v sqlite3 >/dev/null 2>&1 && [[ -f "${lutris_db_path}" ]]; then
+      safe_target_game_folder="${target_game_folder//\'/\'\'}"
+      game_real_name=$(sqlite3 "${lutris_db_path}" "SELECT name FROM games WHERE slug='${safe_target_game_folder}' LIMIT 1;" 2>/dev/null)
     fi
-    [ -z "$game_real_name" ] && game_real_name="$target_game_folder"
+    [[ -z "${game_real_name}" ]] && game_real_name="${target_game_folder}"
 
     # Vérification anti-écrasement en CLI
     archive_path="${OUTPUT_DIR}/${game_real_name}.zgp"
-    if [ -f "$archive_path" ]; then
-      echo "Erreur : Un paquet nommé '${game_real_name}.zgp' existe déjà dans '${OUTPUT_DIR}'." >&2
-      echo "Supprimez-le ou déplacez-le avant de relancer l'exportation." >&2
+    if [[ -f "${archive_path}" ]]; then
+      t pack_game.archive_exists_cli "${game_real_name}" "${OUTPUT_DIR}" >&2
+      t pack_game.archive_exists_hint >&2
       exit 1
     fi
 
-    games_to_export+=("$game_real_name")
-    folder_by_name["$game_real_name"]="$target_game_folder"
+    games_to_export+=("${game_real_name}")
+    folder_by_name["${game_real_name}"]="${target_game_folder}"
   done
 else
   # --- MODE INTERACTIF (Avec Zenity) ---
   if ! command -v zenity >/dev/null 2>&1; then
-    echo "Erreur : 'zenity' n'est pas installé sur le système." >&2
+    t pack_game.zenity_missing >&2
     exit 1
   fi
 
   shopt -s nullglob
-  prefix_dirs=( "$GAMES_DIR"/*/ )
-  if [ ${#prefix_dirs[@]} -eq 0 ]; then
-    zenity --info --text="Aucun préfixe de jeu trouvé dans '$GAMES_DIR'." 2>/dev/null
+  prefix_dirs=( "${GAMES_DIR}"/*/ )
+  if [[ ${#prefix_dirs[@]} -eq 0 ]]; then
+    zenity --info --text="$(t pack_game.no_prefix_found "${GAMES_DIR}")" 2>/dev/null
     exit 0
   fi
 
   zenity_args=()
   for dir in "${prefix_dirs[@]}"; do
-    folder_name=$(basename "$dir")
+    folder_name=$(basename "${dir}")
     game_real_name=""
 
-    if command -v sqlite3 >/dev/null 2>&1 && [ -f "$lutris_db_path" ]; then
-      game_real_name=$(sqlite3 "$lutris_db_path" "SELECT name FROM games WHERE slug='$folder_name' LIMIT 1;" 2>/dev/null)
+    if command -v sqlite3 >/dev/null 2>&1 && [[ -f "${lutris_db_path}" ]]; then
+      safe_folder_name="${folder_name//\'/\'\'}"
+      game_real_name=$(sqlite3 "${lutris_db_path}" "SELECT name FROM games WHERE slug='${safe_folder_name}' LIMIT 1;" 2>/dev/null)
     fi
 
-    if [ -z "$game_real_name" ]; then
-      internal_game_dir=$(basename "$dir/drive_c/Games"/*/ 2>/dev/null)
-      [ -n "$internal_game_dir" ] && [ "$internal_game_dir" != "*" ] && game_real_name="$internal_game_dir"
+    if [[ -z "${game_real_name}" ]]; then
+      internal_game_dir=$(basename "${dir}/drive_c/Games"/*/ 2>/dev/null)
+      [[ -n "${internal_game_dir}" ]] && [[ "${internal_game_dir}" != "*" ]] && game_real_name="${internal_game_dir}"
     fi
 
-    [ -z "$game_real_name" ] && game_real_name="$folder_name"
+    [[ -z "${game_real_name}" ]] && game_real_name="${folder_name}"
 
-    folder_by_name["$game_real_name"]="$folder_name"
-    zenity_args+=( "FALSE" "$game_real_name" )
+    folder_by_name["${game_real_name}"]="${folder_name}"
+    zenity_args+=( "FALSE" "${game_real_name}" )
   done
 
   selected_games=$(zenity --list --checklist \
-    --title="Exportateur de Préfixes Lutris" \
-    --text="Sélectionnez le ou les jeux à exporter :" \
-    --column="Exporter" --column="Nom du Jeu" \
+    --title="$(t pack_game.select_title)" \
+    --text="$(t pack_game.select_text)" \
+    --column="$(t pack_game.select_col_export)" --column="$(t pack_game.select_col_name)" \
     "${zenity_args[@]}" \
     --width=500 --height=400 2>/dev/null)
 
-  [ -z "$selected_games" ] && exit 0
+  [[ -z "${selected_games}" ]] && exit 0
 
-  IFS="|" read -r -a games_to_export <<< "$selected_games"
+  IFS="|" read -r -a games_to_export <<< "${selected_games}"
 
   # --- Vérification anti-écrasement en Mode Interactif ---
   for game_real_name in "${games_to_export[@]}"; do
     archive_path="${OUTPUT_DIR}/${game_real_name}.zgp"
-    if [ -f "$archive_path" ]; then
+    if [[ -f "${archive_path}" ]]; then
       zenity --error \
-        --title="Erreur : Paquet existant" \
-        --text="Un paquet nommé '${game_real_name}.zgp' existe déjà.\n\nPar sécurité, l'écrasement est interdit. Veuillez supprimer ou renommer l'archive existante." \
+        --title="$(t pack_game.archive_exists_title)" \
+        --text="$(t pack_game.archive_exists_gui "${game_real_name}")" \
         --width=450 2>/dev/null
       exit 1
     fi
   done
 
   LEVEL=3
-  zenity --question \
-    --title="Options de compression" \
-    --text="Personnaliser le taux de compression ?" \
-    --width=400 2>/dev/null
-
-  if [ $? -eq 0 ]; then
-    level_choice=$(zenity --scale \
-      --title="Niveau de compression Zstandard" \
-      --text="Choisissez le niveau de compression :\n(1 = Rapide | 3 = Défaut | 22 = Max/Lent)" \
-      --min-value=1 --max-value=22 --value=3 --step=1 --width=400 2>/dev/null)
-    [ $? -eq 0 ] && [ -n "$level_choice" ] && LEVEL="$level_choice"
+  if zenity --question \
+    --title="$(t pack_game.compression_question_title)" \
+    --text="$(t pack_game.compression_question_text)" \
+    --width=400 2>/dev/null; then
+    if level_choice=$(zenity --scale \
+      --title="$(t pack_game.compression_scale_title)" \
+      --text="$(t pack_game.compression_scale_text)" \
+      --min-value=1 --max-value=22 --value=3 --step=1 --width=400 2>/dev/null); then
+      [[ -n "${level_choice}" ]] && LEVEL="${level_choice}"
+    fi
   fi
 fi
 
 # Traitement de chaque jeu sélectionné
 for game_real_name in "${games_to_export[@]}"; do
-  WINEPREFIX_NAME="${folder_by_name[$game_real_name]}"
+  WINEPREFIX_NAME="${folder_by_name[${game_real_name}]}"
   WINEPREFIX_DIR="${GAMES_DIR}/${WINEPREFIX_NAME}"
   
-  [ ! -d "$WINEPREFIX_DIR" ] && continue
+  [[ ! -d "${WINEPREFIX_DIR}" ]] && continue
 
-  game_runner="$default_runner"
-  cpu_limit=""
   configpath=""
 
-  if command -v sqlite3 >/dev/null 2>&1 && [ -f "$lutris_db_path" ]; then
-    configpath=$(sqlite3 "$lutris_db_path" "SELECT configpath FROM games WHERE slug='$WINEPREFIX_NAME' LIMIT 1;" 2>/dev/null)
+  if command -v sqlite3 >/dev/null 2>&1 && [[ -f "${lutris_db_path}" ]]; then
+    safe_wineprefix_name="${WINEPREFIX_NAME//\'/\'\'}"
+    configpath=$(sqlite3 "${lutris_db_path}" "SELECT configpath FROM games WHERE slug='${safe_wineprefix_name}' LIMIT 1;" 2>/dev/null)
   fi
 
-  ARCHIVE_NAME="$game_real_name"
+  ARCHIVE_NAME="${game_real_name}"
   archive_path="${OUTPUT_DIR}/${ARCHIVE_NAME}.zgp"
 
-  # Recherche robuste du sous-dossier de jeu interne
-  GAME_DIR=$(basename "$(find "$WINEPREFIX_DIR/drive_c/Games" -maxdepth 1 -mindepth 1 -type d | head -n 1)")
-  [ -z "$GAME_DIR" ] && GAME_DIR="$WINEPREFIX_NAME"
+  # Recherche robuste du sous-dossier de jeu interne (2>/dev/null : si "drive_c/Games"
+  # n'existe pas pour ce préfixe, on veut basculer silencieusement sur le fallback
+  # ci-dessous plutôt qu'afficher une erreur "find: No such file or directory" inutile)
+  GAME_DIR=$(basename "$(find "${WINEPREFIX_DIR}/drive_c/Games" -maxdepth 1 -mindepth 1 -type d 2>/dev/null | head -n 1)")
+  [[ -z "${GAME_DIR}" ]] && GAME_DIR="${WINEPREFIX_NAME}"
 
-  ini_parent_dir="$WINEPREFIX_DIR/drive_c/Games/$GAME_DIR"
-  goglog="$ini_parent_dir/goglog.ini"
+  ini_parent_dir="${WINEPREFIX_DIR}/drive_c/Games/${GAME_DIR}"
+  goglog="${ini_parent_dir}/goglog.ini"
   lutris_json="${WINEPREFIX_DIR}/lutris.json"
 
-  if [ -f "$goglog" ]; then
-    for user in "${user_array[@]}"; do
-      sed -i "s|$user|anonuser|g" "$goglog"
-    done
+  if [[ -f "${goglog}" ]]; then
+    anonymize_user_paths "${goglog}"
   fi
 
-  if [ -f "$lutris_json" ]; then
-    for user in "${user_array[@]}"; do
-      sed -i "s|$user|anonuser|g" "$lutris_json"
-    done
+  if [[ -f "${lutris_json}" ]]; then
+    anonymize_user_paths "${lutris_json}"
   fi
 
   # Nettoyage des liens symboliques et dossiers temporaires inutiles
-  [ -d "${WINEPREFIX_DIR}/dosdevices" ] && rm -rf "${WINEPREFIX_DIR}/dosdevices"
-  [ -L "${WINEPREFIX_DIR}/drive_c/users/steamuser" ] && unlink "${WINEPREFIX_DIR}/drive_c/users/steamuser"
-  [ -L "${WINEPREFIX_DIR}/drive_c/users/${USER}" ] && unlink "${WINEPREFIX_DIR}/drive_c/users/${USER}"
-  [ -d "${WINEPREFIX_DIR}/drive_c/users/${USER}" ] && mv -n "${WINEPREFIX_DIR}/drive_c/users/${USER}" "${WINEPREFIX_DIR}/drive_c/users/steamuser"
-  [ -L "${WINEPREFIX_DIR}/pfx" ] && unlink "${WINEPREFIX_DIR}/pfx"
+  [[ -d "${WINEPREFIX_DIR}/dosdevices" ]] && rm -rf "${WINEPREFIX_DIR}/dosdevices"
+  [[ -L "${WINEPREFIX_DIR}/drive_c/users/steamuser" ]] && unlink "${WINEPREFIX_DIR}/drive_c/users/steamuser"
+  [[ -L "${WINEPREFIX_DIR}/drive_c/users/${USER}" ]] && unlink "${WINEPREFIX_DIR}/drive_c/users/${USER}"
+  [[ -d "${WINEPREFIX_DIR}/drive_c/users/${USER}" ]] && mv -n "${WINEPREFIX_DIR}/drive_c/users/${USER}" "${WINEPREFIX_DIR}/drive_c/users/steamuser"
+  [[ -L "${WINEPREFIX_DIR}/pfx" ]] && unlink "${WINEPREFIX_DIR}/pfx"
 
   for link_name in "Application Data" "Desktop" "Music" "Pictures" "Videos" "Documents" "My Documents" "Downloads"; do
-    [ -L "${WINEPREFIX_DIR}/drive_c/users/steamuser/$link_name" ] && unlink "${WINEPREFIX_DIR}/drive_c/users/steamuser/$link_name"
+    [[ -L "${WINEPREFIX_DIR}/drive_c/users/steamuser/${link_name}" ]] && unlink "${WINEPREFIX_DIR}/drive_c/users/steamuser/${link_name}"
   done
 
-  [ -d "${WINEPREFIX_DIR}/drive_c/ProgramData/Package Cache/" ] && rm -rf -- "${WINEPREFIX_DIR}/drive_c/ProgramData/Package Cache/"*
-  [ -d "${WINEPREFIX_DIR}/drive_c/users/steamuser/Temp" ] && rm -rf -- "${WINEPREFIX_DIR}/drive_c/users/steamuser/Temp/"*
-  [ -d "${WINEPREFIX_DIR}/drive_c" ] && mkdir -p "${WINEPREFIX_DIR}/drive_c/users/steamuser/Temp"
+  [[ -d "${WINEPREFIX_DIR}/drive_c/ProgramData/Package Cache/" ]] && rm -rf -- "${WINEPREFIX_DIR}/drive_c/ProgramData/Package Cache/"*
+  [[ -d "${WINEPREFIX_DIR}/drive_c/users/steamuser/Temp" ]] && rm -rf -- "${WINEPREFIX_DIR}/drive_c/users/steamuser/Temp/"*
+  [[ -d "${WINEPREFIX_DIR}/drive_c" ]] && mkdir -p "${WINEPREFIX_DIR}/drive_c/users/steamuser/Temp"
 
   find "${WINEPREFIX_DIR}/drive_c" -type l ! -exec test -e {} \; -delete
-  find "${WINEPREFIX_DIR}/drive_c" -type l -exec bash -c 'target=$(readlink "{}"); rm "{}"; cp -r "$target" "{}"' \;
+  # "{}" est passé en argument positionnel ($1) plutôt qu'interpolé dans le texte du script :
+  # un nom de fichier contenant des caractères spéciaux (`, $, guillemets...) ne peut plus
+  # être interprété comme du code par bash.
+  find "${WINEPREFIX_DIR}/drive_c" -type l -exec bash -c 'target=$(readlink "$1"); rm "$1"; cp -r "$target" "$1"' _ {} \;
   find "${WINEPREFIX_DIR}/drive_c/windows/system32" -type f -name '*.orig' -delete
   find "${WINEPREFIX_DIR}/drive_c/windows/syswow64" -type f -name '*.orig' -delete
 
   for reg_file in "system.reg" "user.reg" "userdef.reg"; do
-    if [ -f "${WINEPREFIX_DIR}/${reg_file}" ]; then
-      for user in "${user_array[@]}"; do
-        sed -i "s|${user}|anonuser|g" "${WINEPREFIX_DIR}/${reg_file}"
-      done
+    if [[ -f "${WINEPREFIX_DIR}/${reg_file}" ]]; then
+      anonymize_user_paths "${WINEPREFIX_DIR}/${reg_file}"
     fi
   done
 
   # --- CRÉATION DU FICHIER MÊTA POUR LE VRAI NOM DU JEU ---
-  python3 -c "
-import json
-meta = {'game_real_name': '''$game_real_name'''}
-with open('${WINEPREFIX_DIR}/zgp-meta.json', 'w') as f:
+  # game_real_name et WINEPREFIX_DIR sont passés via l'environnement plutôt qu'interpolés
+  # directement dans le code Python : un nom de jeu contenant une apostrophe (ou tout
+  # caractère spécial Python) cassait silencieusement ce bloc (stderr vers /dev/null), et
+  # le vrai nom du jeu n'était alors jamais préservé pour la réinstallation.
+  GAME_REAL_NAME="${game_real_name}" WINEPREFIX_DIR_ENV="${WINEPREFIX_DIR}" python3 -c "
+import json, os
+meta = {'game_real_name': os.environ.get('GAME_REAL_NAME', '')}
+with open(os.path.join(os.environ['WINEPREFIX_DIR_ENV'], 'zgp-meta.json'), 'w') as f:
     json.dump(meta, f)
 " 2>/dev/null
 
   # --- EMBARQUEMENT PROPRE DU YAML LUTRIS (si disponible) ---
-  if [ -n "$configpath" ] && [ -f "$lutris_config_dir/${configpath}.yml" ]; then
-    cp "$lutris_config_dir/${configpath}.yml" "${WINEPREFIX_DIR}/zgp-game-config.yml"
-    
-    DEFAULT_RUNNER="$default_runner" python3 -c "
+  if [[ -n "${configpath}" ]] && [[ -f "${lutris_config_dir}/${configpath}.yml" ]]; then
+    cp "${lutris_config_dir}/${configpath}.yml" "${WINEPREFIX_DIR}/zgp-game-config.yml"
+
+    # Le préfixe absolu du wineprefix (ex: /home/harry/Games/mariovania) est remplacé par
+    # le placeholder natif de Lutris "$GAMEDIR" dans tous les chemins du YAML embarqué,
+    # résolu dynamiquement à l'installation d'après le dossier de jeux réellement configuré
+    # chez l'utilisateur qui installe (voir zgp-game-installer.sh). Auparavant, seul le
+    # segment "/home/<nom>/" était anonymisé : le reste du chemin (nom du dossier de jeux)
+    # restait figé tel quel dans le paquet, cassant toute installation avec un dossier de
+    # jeux personnalisé ou différent de celui de la machine ayant créé le paquet.
+    YML_PATH="${WINEPREFIX_DIR}/zgp-game-config.yml" WINEPREFIX_DIR_ENV="${WINEPREFIX_DIR}" DEFAULT_RUNNER="${default_runner}" ERR_YAML_LABEL="$(t pack_game.yaml_cleanup_error)" python3 -c '
 import yaml, re, os
-yml_path = '${WINEPREFIX_DIR}/zgp-game-config.yml'
-default_runner = os.environ.get('DEFAULT_RUNNER', '')
+
+yml_path = os.environ["YML_PATH"]
+prefix_dir = os.environ.get("WINEPREFIX_DIR_ENV", "")
+default_runner = os.environ.get("DEFAULT_RUNNER", "")
+prefix_pattern = re.escape(prefix_dir) if prefix_dir else None
+
 try:
-    with open(yml_path, 'r') as f:
+    with open(yml_path, "r") as f:
         data = yaml.safe_load(f)
     if isinstance(data, dict):
-        data.pop('script', None)
-        data.pop('version', None)
-        data.pop('slug', None)
-        
+        data.pop("script", None)
+        data.pop("version", None)
+        data.pop("slug", None)
+
         def clean_paths(obj):
             if isinstance(obj, dict):
                 return {k: clean_paths(v) for k, v in obj.items()}
             elif isinstance(obj, list):
                 return [clean_paths(v) for v in obj]
             elif isinstance(obj, str):
-                return re.sub(r'/home/[^/]+/', '/home/anonuser/', obj)
+                s = obj
+                if prefix_pattern:
+                    s = re.sub(prefix_pattern + r"(?=/|$)", "$GAMEDIR", s)
+                # Filet de sécurité : anonymise tout chemin utilisateur qui référencerait
+                # encore /home/<nom> en dehors du prefix (comportement précédent conservé
+                # en complément, pour tout chemin non couvert par le placeholder ci-dessus)
+                s = re.sub(r"/home/[^/]+/", "/home/anonuser/", s)
+                return s
             return obj
-            
+
         data = clean_paths(data)
 
-        if not isinstance(data.get('wine'), dict):
-            data['wine'] = {}
-        if not data['wine'].get('version'):
-            data['wine']['version'] = default_runner
+        if not isinstance(data.get("wine"), dict):
+            data["wine"] = {}
+        if not data["wine"].get("version"):
+            data["wine"]["version"] = default_runner
 
-        with open(yml_path, 'w') as f:
+        with open(yml_path, "w") as f:
             yaml.dump(data, f, sort_keys=False)
 except Exception as e:
-    print(f'Erreur nettoyage YAML: {e}')
-" 2>/dev/null
+    err_label = os.environ.get("ERR_YAML_LABEL", "YAML cleanup error")
+    print(f"{err_label}: {e}")
+' 2>/dev/null
   fi
   # ---------------------------------------------------------
 
-  if [ "$LEVEL" -gt 19 ]; then
-    zstd_opt="--ultra -$LEVEL"
+  if [[ "${LEVEL}" -gt 19 ]]; then
+    zstd_opt="--ultra -${LEVEL}"
   else
-    zstd_opt="-$LEVEL"
+    zstd_opt="-${LEVEL}"
   fi
 
   # --- EXÉCUTION DE LA COMPRESSION SELON LE MODE ---
-  if [ ${#cli_games[@]} -gt 0 ]; then
+  if [[ ${#cli_games[@]} -gt 0 ]]; then
     # MODE CLI : Utilisation de pv pour une barre textuelle propre si dispo, sinon simple message
-    echo "Compression de '$ARCHIVE_NAME' (Niveau $LEVEL)..."
+    t pack_game.compressing_cli "${ARCHIVE_NAME}" "${LEVEL}"
     if command -v pv >/dev/null 2>&1; then
-      source_size=$(du -sb "$WINEPREFIX_DIR" 2>/dev/null | cut -f1)
-      [ -z "$source_size" ] && source_size=0
+      source_size=$(du -sb "${WINEPREFIX_DIR}" 2>/dev/null | cut -f1)
+      [[ -z "${source_size}" ]] && source_size=0
       
-      tar -C "${GAMES_DIR}" -cf - "${WINEPREFIX_NAME}" | pv -s "$source_size" | zstd $zstd_opt > "$archive_path"
+      tar -C "${GAMES_DIR}" -cf - "${WINEPREFIX_NAME}" | pv -s "${source_size}" | zstd "${zstd_opt}" > "${archive_path}"
+      tar_exit="${PIPESTATUS[0]}"
     else
-      tar -C "${GAMES_DIR}" -cf - "${WINEPREFIX_NAME}" | zstd $zstd_opt > "$archive_path"
+      tar -C "${GAMES_DIR}" -cf - "${WINEPREFIX_NAME}" | zstd "${zstd_opt}" > "${archive_path}"
+      tar_exit="${PIPESTATUS[0]}"
     fi
-    echo "Terminé : $archive_path"
+
+    if [[ "${tar_exit}" -ne 0 ]] || [[ ! -s "${archive_path}" ]]; then
+      t pack_game.compression_failed_cli "${ARCHIVE_NAME}" >&2
+      rm -f "${archive_path}"
+      exit 1
+    fi
+
+    t pack_game.done_cli "${archive_path}"
   else
-    # MODE INTERACTIF : Zenity & Barres graphiques
-    source_size=$(du -sb "$WINEPREFIX_DIR" 2>/dev/null | cut -f1)
-    [ -z "$source_size" ] && source_size=1
-    
-    estimated_percentage=$(( 85 - (LEVEL * 2) ))
-    [ "$estimated_percentage" -lt 40 ] && estimated_percentage=40
-    
-    estimated_archive_size=$(( source_size * estimated_percentage / 100 ))
-    [ "$estimated_archive_size" -le 0 ] && estimated_archive_size=1
+    # MODE INTERACTIF : délégué à zgu_gui_compress_zstd (voir zgu-progress-utils.sh) :
+    # pourcentage réel piloté par pv sur le flux tar d'entrée, exactement le même mécanisme
+    # que le mode CLI ci-dessus, au lieu de l'ancienne estimation arbitraire par niveau
+    # ("85 - niveau*2 %"). L'ancienne animation de préparation (20/60/90% avec sleep) a
+    # disparu : purement décorative, elle ne faisait que retarder le démarrage de la
+    # vraie compression sans raison.
+    zgu_gui_compress_zstd "${GAMES_DIR}" "${WINEPREFIX_NAME}" "${archive_path}" "${LEVEL}" \
+      "$(t pack_game.export_title "${ARCHIVE_NAME}")" \
+      "$(t pack_game.export_text "${LEVEL}")"
+    compress_status=$?
 
-    (
-      echo "20" ; sleep 0.4
-      echo "# Analyse du préfixe et allocation de la mémoire..."
-      echo "60" ; sleep 0.4
-      echo "# Initialisation de la compression zstd (Niveau $LEVEL)..."
-      echo "90" ; sleep 0.4
-    ) | zenity --progress \
-      --title="Préparation de $ARCHIVE_NAME" \
-      --text="Initialisation en cours..." \
-      --percentage=0 --auto-close --no-cancel 2>/dev/null
-
-    if [ "$LEVEL" -gt 19 ]; then
-      tar_cmd="tar -I \"zstd --ultra -$LEVEL\" -cvf \"$archive_path\" -C \"${GAMES_DIR}\" \"${WINEPREFIX_NAME}\""
-    else
-      tar_cmd="tar -I \"zstd -$LEVEL\" -cvf \"$archive_path\" -C \"${GAMES_DIR}\" \"${WINEPREFIX_NAME}\""
-    fi
-
-    bash -c "$tar_cmd" &
-    tar_pid=$!
-
-    (
-      while kill -0 $tar_pid 2>/dev/null; do
-        if [ -f "$archive_path" ]; then
-          current_archive_size=$(stat -c%s "$archive_path" 2>/dev/null || stat -f%z "$archive_path" 2>/dev/null)
-          [ -z "$current_archive_size" ] && current_archive_size=0
-
-          percent=$(( current_archive_size * 100 / estimated_archive_size ))
-          [ "$percent" -ge 99 ] && percent=99
-          
-          current_mb=$(( current_archive_size / 1024 / 1024 ))
-          estimated_mb=$(( estimated_archive_size / 1024 / 1024 ))
-
-          echo "$percent"
-          echo "# Compression de $ARCHIVE_NAME\nÉcrit : ${current_mb} Mo / ~${estimated_mb} Mo estimés"
-        fi
-        sleep 0.3
-      done
-      echo "100"
-      echo "# Finalisation de l'archive de $ARCHIVE_NAME..."
-      sleep 0.5
-    ) | zenity --progress \
-      --title="Exportation de $ARCHIVE_NAME" \
-      --text="Compression du préfixe (Niveau $LEVEL)..." \
-      --percentage=0 --auto-close 2>/dev/null
-
-    zenity_status=$?
-
-    if [ $zenity_status -ne 0 ]; then
-      pkill -P $tar_pid 2>/dev/null
-      kill -9 $tar_pid 2>/dev/null
-      rm -f "$archive_path"
-      zenity --info --title="Annulation" --text="L'exportation de $ARCHIVE_NAME a été annulée." 2>/dev/null
+    if [[ "${compress_status}" -eq 2 ]]; then
+      zenity --info --title="$(t pack_game.cancel_title)" --text="$(t pack_game.cancel_text "${ARCHIVE_NAME}")" 2>/dev/null
       exit 0
-    fi
-
-    wait $tar_pid
-    if [ $? -ne 0 ]; then
-      zenity --error --text="Une erreur est survenue lors de la compression de $ARCHIVE_NAME." 2>/dev/null
+    elif [[ "${compress_status}" -ne 0 ]]; then
+      zenity --error --text="$(t pack_game.compression_error "${ARCHIVE_NAME}")" 2>/dev/null
       exit 1
     fi
   fi
@@ -360,9 +413,9 @@ except Exception as e:
 
 done
 
-if [ ${#cli_games[@]} -eq 0 ]; then
-  notify-send "Exportation terminée" "Tous les jeux sélectionnés ont été exportés avec succès au format .zgp !" 2>/dev/null
+if [[ ${#cli_games[@]} -eq 0 ]]; then
+  notify-send "$(t pack_game.notify_title)" "$(t pack_game.notify_body)" 2>/dev/null
 else
-  echo "Exportation CLI terminée avec succès !"
+  t pack_game.cli_done
 fi
 exit 0

@@ -4,47 +4,47 @@
 # Sortie : <nom du runner> par ligne, triés alphabétiquement.
 # Un runner déjà présent localement est signalé par "(déjà installé)".
 
-lutris_flatpak_runner_dir="$HOME/.var/app/net.lutris.Lutris/data/lutris/runners/wine"
-lutris_package_runner_dir="$HOME/.local/share/lutris/runners/wine"
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=./zgl-lang-loader.sh
+source "${script_dir}/zgl-lang-loader.sh"
+# shellcheck source=./zgu-github-release-utils.sh
+source "${script_dir}/zgu-github-release-utils.sh"
+# shellcheck source=./zgu-lutris-utils.sh
+source "${script_dir}/zgu-lutris-utils.sh"
 
-readonly GITHUB_RELEASE_URL="https://github.com/RogerBytes/Mintage/releases/tag/zgr-pkg"
+lutris_flatpak_runner_dir="${HOME}/.var/app/net.lutris.Lutris/data/lutris/runners/wine"
+lutris_package_runner_dir="${HOME}/.local/share/lutris/runners/wine"
+
+# GITHUB_RELEASE_URL est désormais définie dans zgu-github-release-utils.sh (sourcé plus haut),
+# seul endroit à modifier pour changer le dépôt/la release des runners.
 
 # 1. Vérification des dépendances nécessaires
 if ! command -v python3 >/dev/null 2>&1; then
-  echo "Erreur : 'python3' n'est pas installé sur le système." >&2
+  t list_remote.python_missing >&2
   exit 1
 fi
 
 if ! command -v curl >/dev/null 2>&1 && ! command -v wget >/dev/null 2>&1; then
-  echo "Erreur : 'curl' ou 'wget' est requis pour contacter le dépôt distant." >&2
+  t list_remote.network_tool_missing >&2
   exit 1
 fi
 
-# 2. Détection Flatpak vs Paquet natif (pour marquer les runners déjà installés)
-check_flatpak_lutris_installed() {
-  flatpak list 2>/dev/null | grep -q lutris
-}
-
+# 2. Détection Flatpak vs Paquet natif (pour marquer les runners déjà installés ;
+#    fonction fournie par zgu-lutris-utils.sh)
 if check_flatpak_lutris_installed; then
-  runner_dir="$lutris_flatpak_runner_dir"
-elif [ -d "$lutris_package_runner_dir" ]; then
-  runner_dir="$lutris_package_runner_dir"
+  runner_dir="${lutris_flatpak_runner_dir}"
+elif check_native_lutris_installed "" "${lutris_package_runner_dir}"; then
+  runner_dir="${lutris_package_runner_dir}"
 else
-  runner_dir="$HOME/.local/share/lutris/runners/wine"
+  runner_dir="${HOME}/.local/share/lutris/runners/wine"
 fi
 
 # 3. Récupération de la liste des assets .zgr de la release GitHub
-api_url=$(echo "$GITHUB_RELEASE_URL" | sed -E 's|https?://github\.com/([^/]+)/([^/]+)/releases/tag/([^/]+)|https://api.github.com/repos/\1/\2/releases/tags/\3|')
+api_url=$(zgu_github_api_url "${GITHUB_RELEASE_URL}")
+release_json=$(zgu_fetch_url "${api_url}")
 
-release_json=""
-if command -v curl >/dev/null 2>&1; then
-  release_json=$(curl -s "$api_url")
-else
-  release_json=$(wget -qO- "$api_url")
-fi
-
-if [ -z "$release_json" ]; then
-  echo "Erreur : Impossible de contacter la release GitHub distante." >&2
+if [[ -z "${release_json}" ]]; then
+  t list_remote.fetch_failed >&2
   exit 1
 fi
 
@@ -62,20 +62,22 @@ try:
         print(n)
 except Exception:
     pass
-' "$release_json")
+' "${release_json}")
 
-if [ -z "$remote_runners" ]; then
-  echo "Aucun runner disponible sur le dépôt distant (ou réponse GitHub invalide)."
+if [[ -z "${remote_runners}" ]]; then
+  t list_remote.none_available
   exit 0
 fi
 
+installed_suffix="$(t list_remote.already_installed_suffix)"
+
 while IFS= read -r runner_name; do
-  [ -z "$runner_name" ] && continue
-  if [ -d "$runner_dir/$runner_name" ]; then
-    echo "$runner_name  (déjà installé)"
+  [[ -z "${runner_name}" ]] && continue
+  if [[ -d "${runner_dir}/${runner_name}" ]]; then
+    echo "${runner_name}${installed_suffix}"
   else
-    echo "$runner_name"
+    echo "${runner_name}"
   fi
-done <<< "$remote_runners"
+done <<< "${remote_runners}"
 
 exit 0
