@@ -62,6 +62,14 @@ if [[ "${will_use_zenity}" = true ]] && ! command -v zenity >/dev/null 2>&1; the
   exit 1
 fi
 
+# python3 lui-même est requis, distinctement de PyYAML ci-dessous : sans cette vérification
+# séparée, une machine sans python3 du tout recevait le même message "PyYAML manquant" qu'une
+# machine avec python3 mais sans le module, ce qui égarait l'utilisateur sur la vraie cause.
+if ! command -v python3 >/dev/null 2>&1; then
+  t install_game.cmd_missing "python3"
+  exit 1
+fi
+
 # PyYAML est utilisé pour lire/écrire le YAML embarqué (zgp-game-config.yml) : sans lui,
 # l'installation se poursuivait avant en silence avec un exécutable Lutris vide.
 if ! python3 -c "import yaml" >/dev/null 2>&1; then
@@ -196,7 +204,7 @@ else
   opt_menu_label="$(t install_game.shortcuts_opt_menu)"
   opt_desktop_label="$(t install_game.shortcuts_opt_desktop)"
 
-  shortcuts_options=$(zenity --list --checklist --title="$(t install_game.shortcuts_title)" --text="$(t install_game.shortcuts_text)" --column="$(t install_game.shortcuts_col_create)" --column="$(t install_game.shortcuts_col_location)" TRUE "${opt_menu_label}" TRUE "${opt_desktop_label}" --width=500 --height=220 2>/dev/null)
+  shortcuts_options=$(zenity --list --checklist --title="$(t install_game.shortcuts_title)" --text="$(t install_game.shortcuts_text)" --column="$(t install_game.shortcuts_col_create)" --column="$(t install_game.shortcuts_col_location)" --separator=$'\x1f' TRUE "${opt_menu_label}" TRUE "${opt_desktop_label}" --width=500 --height=220 2>/dev/null)
 
   if [[ "${shortcuts_options}" == *"${opt_menu_label}"* ]]; then
     create_menu=true
@@ -205,13 +213,13 @@ else
     create_desktop=true
   fi
 
-  selected_games=$(zenity --list --checklist --title="$(t install_game.select_title)" --text="$(t install_game.select_text)" --column="$(t install_game.select_col_install)" --column="$(t install_game.select_col_game)" "${zenity_args[@]}" --width=600 --height=400 2>/dev/null)
+  selected_games=$(zenity --list --checklist --title="$(t install_game.select_title)" --text="$(t install_game.select_text)" --column="$(t install_game.select_col_install)" --column="$(t install_game.select_col_game)" --separator=$'\x1f' "${zenity_args[@]}" --width=600 --height=400 2>/dev/null)
 
   if [[ -z "${selected_games}" ]]; then
     exit 0
   fi
 
-  IFS="|" read -r -a games_to_install <<< "${selected_games}"
+  IFS=$'\x1f' read -r -a games_to_install <<< "${selected_games}"
 fi
 
 # ---------------------------------------------------------------------------------------------
@@ -292,6 +300,23 @@ for name in "${games_to_install[@]}"; do
       continue
       ;;
   esac
+
+  # Rejet de tout caractère de contrôle (saut de ligne, retour chariot...) dans le slug :
+  # un nom de dossier Linux peut légalement en contenir, et slug sert de repli pour
+  # icon_path, lui-même injecté tel quel dans le fichier .desktop généré plus bas
+  # ("Icon=${icon_path}"). Sans ce filtre, un \n dans le slug d'un .zgp forgé par un tiers
+  # pouvait ajouter une ligne "Exec=" arbitraire dans le .desktop -- qui, marqué
+  # "metadata::trusted true" à la création, s'exécute sans avertissement au double-clic.
+  # Même risque déjà mitigé pour game_real_name plus bas ; slug suit exactement le même
+  # chemin et doit être filtré de façon identique, ici en amont, par rejet plutôt que
+  # nettoyage a posteriori.
+  case "${slug}" in
+    *[$'\n\r\t']*)
+      t install_game.slug_detect_failed "${name}" >&2
+      rm -rf "${temp_extract_dir}"
+      continue
+      ;;
+  esac
   real_slug_dir=$(realpath -e "${temp_extract_dir}/${slug}" 2>/dev/null)
   real_temp_dir=$(realpath -e "${temp_extract_dir}" 2>/dev/null)
   if [[ -z "${real_slug_dir}" ]] || [[ -z "${real_temp_dir}" ]] || [[ "${real_slug_dir%/*}" != "${real_temp_dir}" ]]; then
@@ -337,13 +362,14 @@ for name in "${games_to_install[@]}"; do
     game_real_name=""
 
     if [[ -f "${meta_json}" ]]; then
-      if command -v python3 >/dev/null 2>&1; then
-        # $meta_json dérive de $slug, potentiellement forgé par quiconque a créé le
-        # paquet .zgp partagé (voir la même remarque plus bas concernant l'échappement
-        # SQL) : passé via l'environnement plutôt qu'interpolé dans le code Python, pour
-        # qu'une apostrophe ou tout autre caractère spécial dans le nom du dossier extrait
-        # ne puisse plus casser la chaîne littérale et injecter du code Python arbitraire.
-        game_real_name=$(META_JSON="${meta_json}" python3 -c '
+      # Pas de test "command -v python3" ici : python3 est déjà vérifié comme dépendance
+      # obligatoire en tête de script (le script quitte sinon), donc toujours présent à ce stade.
+      # $meta_json dérive de $slug, potentiellement forgé par quiconque a créé le
+      # paquet .zgp partagé (voir la même remarque plus bas concernant l'échappement
+      # SQL) : passé via l'environnement plutôt qu'interpolé dans le code Python, pour
+      # qu'une apostrophe ou tout autre caractère spécial dans le nom du dossier extrait
+      # ne puisse plus casser la chaîne littérale et injecter du code Python arbitraire.
+      game_real_name=$(META_JSON="${meta_json}" python3 -c '
 import json, os
 try:
     with open(os.environ["META_JSON"]) as f:
@@ -351,9 +377,6 @@ try:
 except Exception:
     pass
 ' 2>/dev/null)
-      else
-        game_real_name=$(grep -o '"game_real_name"[[:space:]]*:[[:space:]]*"[^"]*"' "${meta_json}" | cut -d'"' -f4)
-      fi
     fi
 
     rm -f "${meta_json}"

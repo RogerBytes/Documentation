@@ -119,8 +119,7 @@ else
   fi
 
   # Tri alphabétique propre
-  mapfile -t sorted_runners < <(sort <<< "${runners_list[*]}")
-  unset IFS
+  mapfile -t sorted_runners < <(printf '%s\n' "${runners_list[@]}" | sort)
 
   zenity_args=()
   for runner in "${sorted_runners[@]}"; do
@@ -134,6 +133,7 @@ else
     --title="$(t pack_runner.select_title)" \
     --text="$(t pack_runner.select_text)" \
     --column="$(t pack_runner.select_col_export)" --column="$(t pack_runner.select_col_name)" \
+    --separator=$'\x1f' \
     "${zenity_args[@]}" \
     --width=650 --height=350 2>/dev/null)
 
@@ -159,7 +159,7 @@ else
     fi
   fi
 
-  IFS="|" read -r -a runners_to_export <<< "${selected_runners}"
+  IFS=$'\x1f' read -r -a runners_to_export <<< "${selected_runners}"
 fi
 
 # 4. Traitement de la compression

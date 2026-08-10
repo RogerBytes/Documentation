@@ -35,16 +35,29 @@ if [[ ! -f "${lutris_db}" ]]; then
 fi
 
 # 3. Récupération des jeux Wine (slug puis nom), triés par nom
-games_list=$(sqlite3 "${lutris_db}" "SELECT slug || '|' || name FROM games WHERE runner='wine' ORDER BY name COLLATE NOCASE ASC;" 2>/dev/null)
+games_list=$(sqlite3 "${lutris_db}" "SELECT slug || char(31) || name FROM games WHERE runner='wine' ORDER BY name COLLATE NOCASE ASC;" 2>/dev/null)
 
 if [[ -z "${games_list}" ]]; then
   t list_games.none_installed
   exit 0
 fi
 
-while IFS="|" read -r slug name; do
+# Jeux vivant dans un préfixe de store partagé (Epic Games Store, EA App, Ubisoft
+# Connect...) : hors du principe un-jeu-un-préfixe de lpm, jamais listés (voir
+# zgu_get_blacklisted_slugs dans zgu-lutris-utils.sh).
+declare -A blacklisted_slugs
+while IFS= read -r bl_slug; do
+  [[ -n "${bl_slug}" ]] && blacklisted_slugs["${bl_slug}"]=1
+done < <(zgu_get_blacklisted_slugs "${lutris_db}")
+
+printed_any=0
+while IFS=$'\x1f' read -r slug name; do
   [[ -z "${slug}" ]] && continue
+  [[ -n "${blacklisted_slugs[${slug}]:-}" ]] && continue
   echo "${slug}  ${name}"
+  printed_any=1
 done <<< "${games_list}"
+
+[[ "${printed_any}" -eq 0 ]] && t list_games.none_installed
 
 exit 0

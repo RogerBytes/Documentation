@@ -117,9 +117,7 @@ sudo ./install.sh
 
 Pour avoir une icone au lanceur, il suffit de créer un répertoire `icon` à la racine du préfixe, et y déplacer votre fichier image.
 
-Pour avoir un support automatique de la manette, il suffit de créer un répertoire `scripts` à la racine du préfixe, et y déplacler le fichier `amgp` de Antimicro.
-
-Si vous avez un script au démarrage `start.sh` et/ou à la fermeture `stop.sh`, il suffit de créer un répertoire `scripts` à la racine du préfixe, et y déplacler le ou les script.
+Pour tout autre fichier annexe (config manette Antimicro `.amgp`, scripts personnels...) : il suffit qu'il soit présent quelque part dans le préfixe **avant l'empaquetage** (`lpm pack`) pour être inclus dans l'archive `.zgp` et se retrouver au même endroit après réinstallation. Pour une config manette, il vous suffit ensuite de la référencer normalement dans la configuration Lutris du jeu (YAML) : le préfixe étant réécrit vers `$GAMEDIR` à l'installation, un chemin qui pointe dedans continue de fonctionner sur la machine de destination.
 
 </div></details>
 

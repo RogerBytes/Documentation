@@ -64,3 +64,64 @@ zgu_get_default_runner() {
   [[ -z "${found}" ]] && found="proton-cachyos-x86_64"
   echo "${found}"
 }
+
+# --- Détection des jeux vivant dans un préfixe de store partagé (Epic Games Store,
+# EA App, Ubisoft Connect...) ---
+#
+# lpm applique le principe un-jeu-un-préfixe, mais Lutris ne crée pas systématiquement
+# un wineprefix par jeu : certains launchers tiers (client installé + jeux dedans) créent
+# UN SEUL wineprefix partagé par plusieurs jeux ("directory" identique pour plusieurs
+# lignes de la table games). Ces jeux-là ne doivent apparaître nulle part dans lpm (ni
+# listés, ni empaquetables, ni désinstallables), sous peine de casser le préfixe partagé
+# pour les autres jeux qui y vivent encore.
+#
+# GOG, itch.io et ZOOM Platform ont été vérifiés comme respectant déjà un-jeu-un-préfixe
+# (chaque jeu a son propre "directory" en base, même si rangé dans un sous-dossier comme
+# gog/<jeu>/) : ils ne sont donc PAS dans cette liste.
+ZGU_STORE_KEYWORDS=("Epic Games Store" "EA App" "EA Desktop" "Ubisoft Connect" "Battle.net" "Steam")
+
+# Retourne (sur stdout, un slug par ligne) l'ensemble des slugs de jeux runner='wine' à
+# exclure de lpm : ceux dont le "directory" est partagé par au moins une autre entrée de
+# la table games (signal principal, détecte automatiquement tout store à préfixe partagé
+# dès qu'un jeu y est installé, sans connaître son nom à l'avance), complété par un filet
+# de sécurité par mots-clés (ZGU_STORE_KEYWORDS) pour bloquer aussi un store fraîchement
+# installé mais encore vide (donc sans "directory" dupliqué détectable pour l'instant).
+#
+# Ne fait aucun affichage, ne modifie rien : pure fonction de lecture, à appeler par
+# chaque script (lister/packer/uninstaller) pour filtrer sa propre liste de jeux.
+zgu_get_blacklisted_slugs() {
+  local lutris_db="$1"
+  [[ -f "${lutris_db}" ]] || return 0
+
+  local rows
+  rows=$(sqlite3 "${lutris_db}" "SELECT slug || char(31) || name || char(31) || directory FROM games WHERE runner='wine';" 2>/dev/null)
+  [[ -z "${rows}" ]] && return 0
+
+  local -A dir_count
+  local slug name dir
+  while IFS=$'\x1f' read -r slug name dir; do
+    [[ -z "${dir}" ]] && continue
+    dir_count["${dir}"]=$(( ${dir_count["${dir}"]:-0} + 1 ))
+  done <<< "${rows}"
+
+  local kw is_blacklisted
+  while IFS=$'\x1f' read -r slug name dir; do
+    [[ -z "${slug}" ]] && continue
+    is_blacklisted=0
+
+    if [[ -n "${dir}" ]] && [[ "${dir_count[${dir}]:-0}" -gt 1 ]]; then
+      is_blacklisted=1
+    fi
+
+    if [[ "${is_blacklisted}" -eq 0 ]]; then
+      for kw in "${ZGU_STORE_KEYWORDS[@]}"; do
+        if [[ "${name}" == *"${kw}"* ]]; then
+          is_blacklisted=1
+          break
+        fi
+      done
+    fi
+
+    [[ "${is_blacklisted}" -eq 1 ]] && echo "${slug}"
+  done <<< "${rows}"
+}

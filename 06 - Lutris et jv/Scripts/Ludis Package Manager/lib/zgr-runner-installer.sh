@@ -239,13 +239,13 @@ try:
         if asset.get("name", "") == target:
             url = asset.get("browser_download_url", "")
             digest = asset.get("digest") or ""
-            print(f"{url}|{digest}")
+            print(f"{url}\x1f{digest}")
             break
 except Exception:
     pass
 ' "${release_json}" "${target_filename}")
-        download_url="${asset_info%%|*}"
-        expected_digest="${asset_info#*|}"
+        download_url="${asset_info%%$'\x1f'*}"
+        expected_digest="${asset_info#*$'\x1f'}"
       fi
 
       if [[ -z "${download_url}" ]]; then
@@ -332,11 +332,12 @@ if [[ ${#cli_targets[@]} -eq 1 ]] && [[ "${is_double_click}" = true ]] && [[ -f 
     --title="$(t install_runner.mass_import_title)" \
     --text="$(t install_runner.mass_import_text)" \
     --column="$(t install_runner.col_install)" --column="$(t install_runner.col_name)" --column="$(t install_runner.col_source)" \
+    --separator=$'\x1f' \
     "${mass_zenity_args[@]}" \
     --width=600 --height=300 2>/dev/null)
 
   [[ -z "${selected_mass}" ]] && exit 0
-  IFS="|" read -r -a mass_to_install <<< "${selected_mass}"
+  IFS=$'\x1f' read -r -a mass_to_install <<< "${selected_mass}"
 
   for sub_runner_name in "${mass_to_install[@]}"; do
     archive_path="${mass_file_by_name[${sub_runner_name}]}"
@@ -383,11 +384,11 @@ try:
         size = asset.get("size", 0)
         digest = asset.get("digest") or ""
         if name.endswith(".zgr"):
-            print(f"{name}|{url}|{size}|{digest}")
+            print(f"{name}\x1f{url}\x1f{size}\x1f{digest}")
 except Exception:
     pass
 ' "${release_json}")
-    while IFS='|' read -r asset_name download_url asset_size asset_digest; do
+    while IFS=$'\x1f' read -r asset_name download_url asset_size asset_digest; do
       [[ -z "${asset_name}" ]] && continue
       runner_name="${asset_name%.zgr}"
 
@@ -403,8 +404,15 @@ except Exception:
   fi
 fi
 
+# Tri alphabétique propre (même mécanisme que zgr-runner-lister.sh / zgr-runner-packer.sh /
+# zgr-runner-uninstaller.sh) : l'ordre d'itération des clés d'un tableau associatif Bash
+# ("${!array[@]}") n'est pas garanti alphabétique, contrairement à ce que suppose une simple
+# boucle dessus -- sans ce tri, la liste des runners disponibles en ligne apparaissait dans un
+# ordre arbitraire dans la fenêtre Zenity.
+mapfile -t sorted_online_runner_names < <(printf '%s\n' "${!file_or_url_by_name[@]}" | sort)
+
 zenity_args=()
-for runner_name in "${!file_or_url_by_name[@]}"; do
+for runner_name in "${sorted_online_runner_names[@]}"; do
   source_tag="${source_by_name[${runner_name}]}"
   zenity_args+=( "TRUE" "${runner_name}" "${source_tag}" )
 done
@@ -416,6 +424,7 @@ selected_runners=$(zenity --list --checklist \
   --title="$(t install_runner.online_title)" \
   --text="$(t install_runner.online_text)" \
   --column="$(t install_runner.col_install)" --column="$(t install_runner.col_name)" --column="$(t install_runner.col_source)" \
+  --separator=$'\x1f' \
   "${zenity_args[@]}" \
   --width=700 --height=380 2>/dev/null)
 
@@ -423,7 +432,7 @@ if [[ -z "${selected_runners}" ]]; then
   exit 0
 fi
 
-IFS="|" read -r -a runners_to_install <<< "${selected_runners}"
+IFS=$'\x1f' read -r -a runners_to_install <<< "${selected_runners}"
 temp_dir=$(mktemp -d)
 
 for runner_name in "${runners_to_install[@]}"; do
@@ -462,8 +471,12 @@ for runner_name in "${runners_to_install[@]}"; do
       continue
     fi
 
+    # Même correction de tri que pour la liste en ligne plus haut dans ce fichier (voir le
+    # commentaire associé) : l'ordre des clés d'un tableau associatif Bash n'est pas garanti.
+    mapfile -t ext_sorted_runner_names < <(printf '%s\n' "${!ext_file_or_url_by_name[@]}" | sort)
+
     ext_zenity_args=()
-    for ext_r_name in "${!ext_file_or_url_by_name[@]}"; do
+    for ext_r_name in "${ext_sorted_runner_names[@]}"; do
       ext_zenity_args+=( "TRUE" "${ext_r_name}" "${local_tag}" )
     done
 
@@ -471,6 +484,7 @@ for runner_name in "${runners_to_install[@]}"; do
       --title="$(t install_runner.folder_found_title)" \
       --text="$(t install_runner.mass_import_text)" \
       --column="$(t install_runner.col_install)" --column="$(t install_runner.col_name)" --column="$(t install_runner.col_source)" \
+      --separator=$'\x1f' \
       "${ext_zenity_args[@]}" \
       --width=600 --height=300 2>/dev/null)
 
@@ -478,7 +492,7 @@ for runner_name in "${runners_to_install[@]}"; do
       continue
     fi
 
-    IFS="|" read -r -a ext_runners_to_install <<< "${ext_selected_runners}"
+    IFS=$'\x1f' read -r -a ext_runners_to_install <<< "${ext_selected_runners}"
 
     for sub_runner_name in "${ext_runners_to_install[@]}"; do
       archive_path="${ext_file_or_url_by_name[${sub_runner_name}]}"
@@ -495,28 +509,26 @@ for runner_name in "${runners_to_install[@]}"; do
     done
     continue
   else
-    source_type="${source_by_name[${runner_name}]}"
-    
-    if [[ "${source_type}" = "${local_tag}" ]]; then
-      archive_path="${file_or_url_by_name[${runner_name}]}"
-    else
-      download_url="${file_or_url_by_name[${runner_name}]}"
-      archive_path="${temp_dir}/${runner_name}.zgr"
+    # Toujours un runner en ligne à ce stade : dans cette boucle (mode interactif normal),
+    # runner_name provient uniquement de la liste construite depuis la release GitHub
+    # (source_by_name ne contient jamais que online_tag) -- le cas d'un runner local est géré
+    # séparément, dans le sous-flux "browse_label" ci-dessus (ext_file_or_url_by_name).
+    download_url="${file_or_url_by_name[${runner_name}]}"
+    archive_path="${temp_dir}/${runner_name}.zgr"
+    rm -f "${archive_path}"
+
+    download_runner "${download_url}" "${archive_path}" "${runner_name}" "${size_by_name[${runner_name}]}"
+
+    if [[ ! -f "${archive_path}" ]] || [[ ! -s "${archive_path}" ]] || ! bsdtar -tf "${archive_path}" >/dev/null 2>&1; then
+      zenity --error --text="$(t install_runner.download_or_archive_invalid_gui "${runner_name}")" 2>/dev/null
+      continue
+    fi
+
+    expected_digest="${digest_by_name[${runner_name}]}"
+    if ! zgu_sha256_matches "${archive_path}" "${expected_digest}"; then
+      zenity --error --text="$(t install_runner.checksum_invalid_gui "${runner_name}")" 2>/dev/null
       rm -f "${archive_path}"
-
-      download_runner "${download_url}" "${archive_path}" "${runner_name}" "${size_by_name[${runner_name}]}"
-
-      if [[ ! -f "${archive_path}" ]] || [[ ! -s "${archive_path}" ]] || ! bsdtar -tf "${archive_path}" >/dev/null 2>&1; then
-        zenity --error --text="$(t install_runner.download_or_archive_invalid_gui "${runner_name}")" 2>/dev/null
-        continue
-      fi
-
-      expected_digest="${digest_by_name[${runner_name}]}"
-      if ! zgu_sha256_matches "${archive_path}" "${expected_digest}"; then
-        zenity --error --text="$(t install_runner.checksum_invalid_gui "${runner_name}")" 2>/dev/null
-        rm -f "${archive_path}"
-        continue
-      fi
+      continue
     fi
   fi
 

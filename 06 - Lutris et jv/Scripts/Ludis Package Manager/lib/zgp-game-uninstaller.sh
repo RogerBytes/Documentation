@@ -97,7 +97,7 @@ if [[ ! -f "${lutris_db}" ]]; then
 fi
 
 # 4. Récupération des jeux Wine depuis la BDD Lutris
-games_list=$(sqlite3 "${lutris_db}" "SELECT name || '|' || slug || '|' || directory FROM games WHERE runner='wine' ORDER BY name COLLATE NOCASE ASC;" 2>/dev/null)
+games_list=$(sqlite3 "${lutris_db}" "SELECT name || char(31) || slug || char(31) || directory FROM games WHERE runner='wine' ORDER BY name COLLATE NOCASE ASC;" 2>/dev/null)
 
 if [[ -z "${games_list}" ]]; then
   if [[ ${#cli_games[@]} -gt 0 ]]; then
@@ -112,14 +112,32 @@ declare -A slug_by_name
 declare -A dir_by_name
 declare -A name_by_slug
 
-while IFS="|" read -r game_name game_slug game_dir; do
+# Jeux vivant dans un préfixe de store partagé (Epic Games Store, EA App, Ubisoft
+# Connect...) : hors du principe un-jeu-un-préfixe de lpm, jamais désinstallables via lpm
+# -- les supprimer casserait le préfixe partagé pour les autres jeux qui y vivent encore
+# (voir zgu_get_blacklisted_slugs dans zgu-lutris-utils.sh).
+declare -A blacklisted_slugs
+while IFS= read -r bl_slug; do
+  [[ -n "${bl_slug}" ]] && blacklisted_slugs["${bl_slug}"]=1
+done < <(zgu_get_blacklisted_slugs "${lutris_db}")
+
+# Conserve l'ordre trié de la requête SQL (ORDER BY name COLLATE NOCASE ASC) dans un tableau
+# indexé séparé : l'ordre d'itération des clés d'un tableau associatif Bash ("${!array[@]}")
+# n'est PAS garanti alphabétique, contrairement à ce que suppose la construction de
+# zenity_args plus bas. Sans ce tableau, la liste de jeux présentée dans la fenêtre Zenity
+# apparaissait dans un ordre arbitraire au lieu de l'ordre alphabétique attendu.
+sorted_game_names=()
+
+while IFS=$'\x1f' read -r game_name game_slug game_dir; do
   [[ -z "${game_name}" ]] && continue
-  
+  [[ -n "${blacklisted_slugs[${game_slug}]:-}" ]] && continue
+
   [[ -z "${game_dir}" ]] && game_dir="${games_dir}/${game_slug}"
 
   slug_by_name["${game_name}"]="${game_slug}"
   dir_by_name["${game_name}"]="${game_dir}"
   name_by_slug["${game_slug}"]="${game_name}"
+  sorted_game_names+=("${game_name}")
 done <<< "${games_list}"
 
 games_to_delete=()
@@ -167,6 +185,9 @@ if [[ ${#cli_games[@]} -gt 0 ]]; then
       
       if [[ -n "${matched_name}" ]]; then
         games_to_delete+=("${matched_name}")
+      elif [[ -n "${blacklisted_slugs[${target_slug}]:-}" ]]; then
+        t uninstall_game.slug_blacklisted "${target_slug}" >&2
+        exit 1
       else
         t uninstall_game.slug_not_found "${target_slug}" >&2
         exit 1
@@ -181,7 +202,7 @@ else
   fi
 
   zenity_args=()
-  for g_name in "${!slug_by_name[@]}"; do
+  for g_name in "${sorted_game_names[@]}"; do
     zenity_args+=( "FALSE" "${g_name}" "${slug_by_name[${g_name}]}" )
   done
 
@@ -189,6 +210,7 @@ else
     --title="$(t uninstall_game.select_title)" \
     --text="$(t uninstall_game.select_text)" \
     --column="$(t uninstall_game.select_col_delete)" --column="$(t uninstall_game.select_col_game)" --column="$(t uninstall_game.select_col_slug)" \
+    --separator=$'\x1f' \
     "${zenity_args[@]}" \
     --width=650 --height=450 2>/dev/null)
 
@@ -196,7 +218,7 @@ else
     exit 0
   fi
 
-  IFS="|" read -r -a games_to_delete <<< "${selected_games}"
+  IFS=$'\x1f' read -r -a games_to_delete <<< "${selected_games}"
 fi
 
 # 6. Gestion de la confirmation

@@ -102,8 +102,7 @@ else
   fi
 
   # Tri alphabétique propre
-  mapfile -t sorted_runners < <(sort <<< "${runners_list[*]}")
-  unset IFS
+  mapfile -t sorted_runners < <(printf '%s\n' "${runners_list[@]}" | sort)
 
   zenity_args=()
 
@@ -120,6 +119,7 @@ else
     --title="$(t uninstall_runner.list_title)" \
     --text="$(t uninstall_runner.list_text)" \
     --column="$(t uninstall_runner.list_column_delete)" --column="$(t uninstall_runner.list_column_name)" \
+    --separator=$'\x1f' \
     "${zenity_args[@]}" \
     --width=650 --height=400 2>/dev/null)
 
@@ -127,7 +127,7 @@ else
     exit 0
   fi
 
-  IFS="|" read -r -a runners_to_delete <<< "${selected_runners}"
+  IFS=$'\x1f' read -r -a runners_to_delete <<< "${selected_runners}"
 
   # Construction du résumé pour la fenêtre de confirmation
   summary_text="$(t uninstall_runner.confirm_gui_header)"

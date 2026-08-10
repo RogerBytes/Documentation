@@ -61,6 +61,17 @@ if [[ "${mode}" != "cli" ]] && ! command -v zenity >/dev/null 2>&1; then
   exit 1
 fi
 
+# pv n'est requis ici qu'en mode GUI : extract_gui() (plus bas) délègue à
+# zgu_gui_extract_zstd (voir zgu-progress-utils.sh), qui appelle pv SANS repli possible en son
+# absence (contrairement à extract_cli() juste en dessous, qui bascule proprement sur un appel
+# bsdtar direct si pv est absent). Sans cette vérification, un pv manquant en mode GUI faisait
+# échouer l'extraction avec un message générique "runner non résolu", sans jamais indiquer que
+# la vraie cause était pv manquant.
+if [[ "${mode}" != "cli" ]] && ! command -v pv >/dev/null 2>&1; then
+  say_err "$(t check.cmd_missing "pv")"
+  exit 1
+fi
+
 # Le module PyYAML est requis pour lire la clé wine.version des YAML des jeux installés.
 # Sans lui, chaque jeu était silencieusement traité comme n'ayant aucun runner requis,
 # ce qui rendait `lpm check` inutile sans jamais le signaler.
@@ -94,12 +105,12 @@ mkdir -p "${runner_dir}"
 # 3. Détermination des runners requis par les jeux installés (clé wine.version des YAML)
 # ---------------------------------------------------------------------------------------------
 
-games_list=$(sqlite3 "${lutris_db}" "SELECT name || '|' || slug || '|' || configpath FROM games WHERE runner='wine';" 2>/dev/null)
+games_list=$(sqlite3 "${lutris_db}" "SELECT name || char(31) || slug || char(31) || configpath FROM games WHERE runner='wine';" 2>/dev/null)
 
 declare -A games_needing_runner   # runner_name -> "jeu1, jeu2, ..."
 required_runners=()
 
-while IFS="|" read -r game_name game_slug configpath; do
+while IFS=$'\x1f' read -r game_name game_slug configpath; do
   [[ -z "${game_slug}" ]] && continue
   [[ -z "${configpath}" ]] && continue
 
@@ -178,12 +189,12 @@ try:
         size = asset.get("size", 0)
         digest = asset.get("digest") or ""
         if name.endswith(".zgr"):
-            print(f"{name}|{url}|{size}|{digest}")
+            print(f"{name}\x1f{url}\x1f{size}\x1f{digest}")
 except Exception:
     pass
 ' "${release_json}" 2>/dev/null)
 
-  while IFS='|' read -r asset_name download_url asset_size asset_digest; do
+  while IFS=$'\x1f' read -r asset_name download_url asset_size asset_digest; do
     [[ -z "${asset_name}" ]] && continue
     release_asset_url["${asset_name%.zgr}"]="${download_url}"
     release_asset_size["${asset_name%.zgr}"]="${asset_size}"

@@ -6,6 +6,11 @@ if [[ "${EUID}" -ne 0 ]]; then
   exit 1
 fi
 
+# Se placer dans le dossier du script (et non le répertoire courant de l'appelant) : permet
+# de lancer "sudo /chemin/vers/install.sh" depuis n'importe où, comme bin/lpm le fait déjà
+# pour se localiser lui-même, plutôt que d'exiger d'être dans la racine du projet.
+cd "$(dirname "${BASH_SOURCE[0]}")" || exit 1
+
 # Définition des chemins de destination sur le système
 INSTALL_BIN_DIR="/usr/local/bin"
 INSTALL_LIB_DIR="/usr/local/lib/lpm"

@@ -40,8 +40,7 @@ if [[ ${#runners_list[@]} -eq 0 ]]; then
 fi
 
 # Tri alphabétique propre
-mapfile -t sorted_runners < <(sort <<< "${runners_list[*]}")
-unset IFS
+mapfile -t sorted_runners < <(printf '%s\n' "${runners_list[@]}" | sort)
 
 for runner in "${sorted_runners[@]}"; do
   runner="${runner%/}"

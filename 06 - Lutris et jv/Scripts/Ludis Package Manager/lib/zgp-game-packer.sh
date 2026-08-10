@@ -93,6 +93,16 @@ if ! command -v zstd >/dev/null 2>&1; then
   exit 1
 fi
 
+# python3 lui-même est requis, distinctement de PyYAML ci-dessous : sans cette vérification
+# séparée, une machine sans python3 du tout recevait le même message "PyYAML manquant" qu'une
+# machine avec python3 mais sans le module, ce qui égarait l'utilisateur sur la vraie cause.
+# Même style que la vérification zstd juste au-dessus (stderr uniquement, pas de dialogue
+# Zenity dédié) : ce script n'a jamais distingué cli/gui pour ses erreurs de dépendances.
+if ! command -v python3 >/dev/null 2>&1; then
+  t pack_game.python3_missing >&2
+  exit 1
+fi
+
 # Le module PyYAML est requis pour nettoyer/réécrire le YAML Lutris embarqué dans le .zgp.
 # Sans lui, le paquet pouvait être créé avec un zgp-game-config.yml non nettoyé (chemins
 # absolus, version de runner manquante) sans qu'aucune erreur ne soit visible.
@@ -115,30 +125,72 @@ if [[ ! -d "${GAMES_DIR}" ]]; then
   fi
 fi
 
-declare -A folder_by_name
+declare -A folder_by_name  # game_real_name -> chemin réel absolu du préfixe (depuis pga.db)
+declare -A slug_by_name    # game_real_name -> slug (pour la relecture de configpath plus bas)
 games_to_export=()
+
+# Jeux vivant dans un préfixe de store partagé (Epic Games Store, EA App, Ubisoft
+# Connect...) : jamais empaquetables via lpm. Un .zgp mélangerait plusieurs jeux dans une
+# seule archive, et le nettoyage/anonymisation appliqué plus bas (fait pour être rejoué
+# à l'installation sur une autre machine) abîmerait le préfixe partagé pour les autres
+# jeux qui y vivent encore (voir zgu_get_blacklisted_slugs dans zgu-lutris-utils.sh).
+declare -A blacklisted_slugs
+if command -v sqlite3 >/dev/null 2>&1 && [[ -f "${lutris_db_path}" ]]; then
+  while IFS= read -r bl_slug; do
+    [[ -n "${bl_slug}" ]] && blacklisted_slugs["${bl_slug}"]=1
+  done < <(zgu_get_blacklisted_slugs "${lutris_db_path}")
+fi
+
+# Résout un slug Lutris (jeu runner='wine') vers le chemin réel et sûr de son préfixe.
+# Découverte via pga.db (colonne "directory") plutôt que par scan de GAMES_DIR/*/ à un seul
+# niveau : l'ancien scan ratait tout jeu imbriqué plus profondément (ex: gog/<jeu>/, comme
+# les jeux GOG de Lutris) et, pire, empaquetait un dossier intermédiaire (ex: "gog/") en
+# bloc si plusieurs jeux y vivaient, mélangeant leurs préfixes dans une seule archive.
+# "directory" peut provenir de N'IMPORTE QUEL jeu wine de la base pga.db, pas uniquement
+# ceux gérés par lpm : même garde anti-évasion que zgp-game-uninstaller.sh (le chemin
+# résolu doit rester un sous-dossier réel de GAMES_DIR).
+# Sortie : chemin réel sur stdout, rien si introuvable/dangereux (code de retour 1).
+resolve_prefix_dir_by_slug() {
+  local slug="$1" safe_slug raw_dir real_dir real_games_dir
+  safe_slug="${slug//\'/\'\'}"
+  raw_dir=$(sqlite3 "${lutris_db_path}" "SELECT directory FROM games WHERE slug='${safe_slug}' AND runner='wine' LIMIT 1;" 2>/dev/null)
+  [[ -z "${raw_dir}" ]] && return 1
+
+  real_dir=$(realpath -e "${raw_dir}" 2>/dev/null)
+  real_games_dir=$(realpath -e "${GAMES_DIR}" 2>/dev/null)
+  if [[ -z "${real_dir}" ]] || [[ -z "${real_games_dir}" ]] || [[ "${real_dir}" != "${real_games_dir}/"* ]]; then
+    return 1
+  fi
+  echo "${real_dir}"
+}
 
 # --- Mode CLI vs Mode Interactif ---
 if [[ ${#cli_games[@]} -gt 0 ]]; then
   # --- MODE CLI (Pas de Zenity, 100% Terminal) ---
   LEVEL="${compression_arg:-3}"
-  
-  for target_game_folder_raw in "${cli_games[@]}"; do
+
+  for target_slug_raw in "${cli_games[@]}"; do
     # basename() neutralise toute tentative de traversée de chemin ("../", chemin absolu...)
-    # dans un nom de dossier de jeu fourni en CLI : sans cela, un nom comme "../../home/user"
-    # aurait pu faire lire/archiver un dossier arbitraire du système en dehors de GAMES_DIR.
-    target_game_folder=$(basename -- "${target_game_folder_raw}")
-    if [[ ! -d "${GAMES_DIR}/${target_game_folder}" ]]; then
-      t pack_game.folder_not_found_cli "${target_game_folder_raw}" "${GAMES_DIR}" >&2
+    # dans le slug fourni en CLI, par cohérence avec le reste du projet.
+    target_slug=$(basename -- "${target_slug_raw}")
+
+    if [[ -n "${blacklisted_slugs[${target_slug}]:-}" ]]; then
+      t pack_game.slug_blacklisted_cli "${target_slug}" >&2
       exit 1
     fi
-    
+
+    resolved_dir=$(resolve_prefix_dir_by_slug "${target_slug}")
+    if [[ -z "${resolved_dir}" ]]; then
+      t pack_game.folder_not_found_cli "${target_slug_raw}" "${GAMES_DIR}" >&2
+      exit 1
+    fi
+
     game_real_name=""
     if command -v sqlite3 >/dev/null 2>&1 && [[ -f "${lutris_db_path}" ]]; then
-      safe_target_game_folder="${target_game_folder//\'/\'\'}"
-      game_real_name=$(sqlite3 "${lutris_db_path}" "SELECT name FROM games WHERE slug='${safe_target_game_folder}' LIMIT 1;" 2>/dev/null)
+      safe_target_slug="${target_slug//\'/\'\'}"
+      game_real_name=$(sqlite3 "${lutris_db_path}" "SELECT name FROM games WHERE slug='${safe_target_slug}' LIMIT 1;" 2>/dev/null)
     fi
-    [[ -z "${game_real_name}" ]] && game_real_name="${target_game_folder}"
+    [[ -z "${game_real_name}" ]] && game_real_name="${target_slug}"
 
     # Vérification anti-écrasement en CLI
     archive_path="${OUTPUT_DIR}/${game_real_name}.zgp"
@@ -149,7 +201,8 @@ if [[ ${#cli_games[@]} -gt 0 ]]; then
     fi
 
     games_to_export+=("${game_real_name}")
-    folder_by_name["${game_real_name}"]="${target_game_folder}"
+    folder_by_name["${game_real_name}"]="${resolved_dir}"
+    slug_by_name["${game_real_name}"]="${target_slug}"
   done
 else
   # --- MODE INTERACTIF (Avec Zenity) ---
@@ -158,44 +211,49 @@ else
     exit 1
   fi
 
-  shopt -s nullglob
-  prefix_dirs=( "${GAMES_DIR}"/*/ )
-  if [[ ${#prefix_dirs[@]} -eq 0 ]]; then
+  if ! command -v sqlite3 >/dev/null 2>&1 || [[ ! -f "${lutris_db_path}" ]]; then
+    zenity --info --text="$(t pack_game.no_prefix_found "${GAMES_DIR}")" 2>/dev/null
+    exit 0
+  fi
+
+  games_rows=$(sqlite3 "${lutris_db_path}" "SELECT slug || char(31) || name FROM games WHERE runner='wine' ORDER BY name COLLATE NOCASE ASC;" 2>/dev/null)
+  if [[ -z "${games_rows}" ]]; then
     zenity --info --text="$(t pack_game.no_prefix_found "${GAMES_DIR}")" 2>/dev/null
     exit 0
   fi
 
   zenity_args=()
-  for dir in "${prefix_dirs[@]}"; do
-    folder_name=$(basename "${dir}")
-    game_real_name=""
+  while IFS=$'\x1f' read -r row_slug row_name; do
+    [[ -z "${row_slug}" ]] && continue
+    [[ -n "${blacklisted_slugs[${row_slug}]:-}" ]] && continue
 
-    if command -v sqlite3 >/dev/null 2>&1 && [[ -f "${lutris_db_path}" ]]; then
-      safe_folder_name="${folder_name//\'/\'\'}"
-      game_real_name=$(sqlite3 "${lutris_db_path}" "SELECT name FROM games WHERE slug='${safe_folder_name}' LIMIT 1;" 2>/dev/null)
-    fi
+    resolved_dir=$(resolve_prefix_dir_by_slug "${row_slug}")
+    [[ -z "${resolved_dir}" ]] && continue
 
-    if [[ -z "${game_real_name}" ]]; then
-      internal_game_dir=$(basename "${dir}/drive_c/Games"/*/ 2>/dev/null)
-      [[ -n "${internal_game_dir}" ]] && [[ "${internal_game_dir}" != "*" ]] && game_real_name="${internal_game_dir}"
-    fi
+    game_real_name="${row_name}"
+    [[ -z "${game_real_name}" ]] && game_real_name="${row_slug}"
 
-    [[ -z "${game_real_name}" ]] && game_real_name="${folder_name}"
-
-    folder_by_name["${game_real_name}"]="${folder_name}"
+    folder_by_name["${game_real_name}"]="${resolved_dir}"
+    slug_by_name["${game_real_name}"]="${row_slug}"
     zenity_args+=( "FALSE" "${game_real_name}" )
-  done
+  done <<< "${games_rows}"
+
+  if [[ ${#zenity_args[@]} -eq 0 ]]; then
+    zenity --info --text="$(t pack_game.no_prefix_found "${GAMES_DIR}")" 2>/dev/null
+    exit 0
+  fi
 
   selected_games=$(zenity --list --checklist \
     --title="$(t pack_game.select_title)" \
     --text="$(t pack_game.select_text)" \
     --column="$(t pack_game.select_col_export)" --column="$(t pack_game.select_col_name)" \
+    --separator=$'\x1f' \
     "${zenity_args[@]}" \
     --width=500 --height=400 2>/dev/null)
 
   [[ -z "${selected_games}" ]] && exit 0
 
-  IFS="|" read -r -a games_to_export <<< "${selected_games}"
+  IFS=$'\x1f' read -r -a games_to_export <<< "${selected_games}"
 
   # --- Vérification anti-écrasement en Mode Interactif ---
   for game_real_name in "${games_to_export[@]}"; do
@@ -225,16 +283,25 @@ fi
 
 # Traitement de chaque jeu sélectionné
 for game_real_name in "${games_to_export[@]}"; do
-  WINEPREFIX_NAME="${folder_by_name[${game_real_name}]}"
-  WINEPREFIX_DIR="${GAMES_DIR}/${WINEPREFIX_NAME}"
-  
+  WINEPREFIX_DIR="${folder_by_name[${game_real_name}]}"
+  game_slug="${slug_by_name[${game_real_name}]}"
+
+  [[ -z "${WINEPREFIX_DIR}" ]] && continue
   [[ ! -d "${WINEPREFIX_DIR}" ]] && continue
+
+  # Racine plate de l'archive nommée d'après le dossier réel du préfixe (dirname/basename
+  # du chemin résolu depuis pga.db) plutôt que GAMES_DIR + nom : fonctionne quelle que soit
+  # la profondeur du préfixe (ex: gog/<jeu>/), l'archive garde toujours une racine plate
+  # nommée d'après le dossier du jeu -- zéro changement côté installeur (zgp-game-installer.sh
+  # ne connaît que cette racine plate, jamais la profondeur d'origine).
+  PARENT_DIR=$(dirname -- "${WINEPREFIX_DIR}")
+  WINEPREFIX_NAME=$(basename -- "${WINEPREFIX_DIR}")
 
   configpath=""
 
-  if command -v sqlite3 >/dev/null 2>&1 && [[ -f "${lutris_db_path}" ]]; then
-    safe_wineprefix_name="${WINEPREFIX_NAME//\'/\'\'}"
-    configpath=$(sqlite3 "${lutris_db_path}" "SELECT configpath FROM games WHERE slug='${safe_wineprefix_name}' LIMIT 1;" 2>/dev/null)
+  if [[ -n "${game_slug}" ]] && command -v sqlite3 >/dev/null 2>&1 && [[ -f "${lutris_db_path}" ]]; then
+    safe_game_slug="${game_slug//\'/\'\'}"
+    configpath=$(sqlite3 "${lutris_db_path}" "SELECT configpath FROM games WHERE slug='${safe_game_slug}' LIMIT 1;" 2>/dev/null)
   fi
 
   ARCHIVE_NAME="${game_real_name}"
@@ -274,10 +341,29 @@ for game_real_name in "${games_to_export[@]}"; do
   [[ -d "${WINEPREFIX_DIR}/drive_c" ]] && mkdir -p "${WINEPREFIX_DIR}/drive_c/users/steamuser/Temp"
 
   find "${WINEPREFIX_DIR}/drive_c" -type l ! -exec test -e {} \; -delete
-  # "{}" est passé en argument positionnel ($1) plutôt qu'interpolé dans le texte du script :
+  # "{}" est passé en argument positionnel plutôt qu'interpolé dans le texte du script :
   # un nom de fichier contenant des caractères spéciaux (`, $, guillemets...) ne peut plus
   # être interprété comme du code par bash.
-  find "${WINEPREFIX_DIR}/drive_c" -type l -exec bash -c 'target=$(readlink "$1"); rm "$1"; cp -r "$target" "$1"' _ {} \;
+  #
+  # Copie-puis-remplace (et non supprime-puis-copie) : "cp -L" résout lui-même la cible du
+  # lien, qu'elle soit relative ou absolue -- contrairement à un "readlink" manuel suivi
+  # d'un "cp" sur ce chemin brut, qui échouait silencieusement pour tout lien RELATIF (la
+  # cible lue par readlink est relative au dossier du lien, pas au répertoire courant du
+  # script). Le lien était alors déjà supprimé avant l'échec de la copie : le fichier
+  # disparaissait purement et simplement de l'archive .zgp, sans erreur bloquante visible.
+  # En copiant d'abord vers un fichier temporaire avant de supprimer le lien, un échec de
+  # copie laisse le lien original intact au lieu de perdre le fichier.
+  find "${WINEPREFIX_DIR}/drive_c" -type l -exec bash -c '
+    for link; do
+      tmp="${link}.zgp-tmp"
+      if cp -rL -- "${link}" "${tmp}" 2>/dev/null; then
+        rm -f -- "${link}"
+        mv -- "${tmp}" "${link}"
+      else
+        rm -f -- "${tmp}"
+      fi
+    done
+  ' _ {} +
   find "${WINEPREFIX_DIR}/drive_c/windows/system32" -type f -name '*.orig' -delete
   find "${WINEPREFIX_DIR}/drive_c/windows/syswow64" -type f -name '*.orig' -delete
 
@@ -372,10 +458,10 @@ except Exception as e:
       source_size=$(du -sb "${WINEPREFIX_DIR}" 2>/dev/null | cut -f1)
       [[ -z "${source_size}" ]] && source_size=0
       
-      tar -C "${GAMES_DIR}" -cf - "${WINEPREFIX_NAME}" | pv -s "${source_size}" | zstd "${zstd_opt}" > "${archive_path}"
+      tar -C "${PARENT_DIR}" -cf - "${WINEPREFIX_NAME}" | pv -s "${source_size}" | zstd "${zstd_opt}" > "${archive_path}"
       tar_exit="${PIPESTATUS[0]}"
     else
-      tar -C "${GAMES_DIR}" -cf - "${WINEPREFIX_NAME}" | zstd "${zstd_opt}" > "${archive_path}"
+      tar -C "${PARENT_DIR}" -cf - "${WINEPREFIX_NAME}" | zstd "${zstd_opt}" > "${archive_path}"
       tar_exit="${PIPESTATUS[0]}"
     fi
 
@@ -393,7 +479,7 @@ except Exception as e:
     # ("85 - niveau*2 %"). L'ancienne animation de préparation (20/60/90% avec sleep) a
     # disparu : purement décorative, elle ne faisait que retarder le démarrage de la
     # vraie compression sans raison.
-    zgu_gui_compress_zstd "${GAMES_DIR}" "${WINEPREFIX_NAME}" "${archive_path}" "${LEVEL}" \
+    zgu_gui_compress_zstd "${PARENT_DIR}" "${WINEPREFIX_NAME}" "${archive_path}" "${LEVEL}" \
       "$(t pack_game.export_title "${ARCHIVE_NAME}")" \
       "$(t pack_game.export_text "${LEVEL}")"
     compress_status=$?
