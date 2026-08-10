@@ -24,7 +24,7 @@ lutris_package_config_dir="${HOME}/.config/lutris/games"
 lutris_flatpak_runner_dir="${HOME}/.var/app/net.lutris.Lutris/data/lutris/runners/wine"
 lutris_package_runner_dir="${HOME}/.local/share/lutris/runners/wine"
 
-# GITHUB_RELEASE_URL est désormais définie dans zgu-github-release-utils.sh (sourcé plus haut),
+# GITHUB_RELEASE_URL est définie dans zgu-github-release-utils.sh (sourcé plus haut),
 # seul endroit à modifier pour changer le dépôt/la release des runners.
 
 say() {
@@ -58,6 +58,17 @@ done
 
 if [[ "${mode}" != "cli" ]] && ! command -v zenity >/dev/null 2>&1; then
   t check.zenity_missing_gui >&2
+  exit 1
+fi
+
+# curl OU wget est requis pour interroger la release GitHub des runners (section 5 plus bas).
+# Sans cette vérification explicite (alignée sur zgr-runner-remote-lister.sh et
+# zgr-runner-installer.sh), l'absence des deux outils faisait échouer zgu_fetch_url en
+# silence : release_json restait vide, et TOUS les runners manquants étaient alors listés
+# comme "non résolus" en fin d'exécution, sans jamais indiquer que la vraie cause était
+# l'absence d'outil réseau plutôt qu'une release GitHub introuvable.
+if ! command -v curl >/dev/null 2>&1 && ! command -v wget >/dev/null 2>&1; then
+  say_err "$(t check.network_tool_missing)"
   exit 1
 fi
 
@@ -129,6 +140,20 @@ except Exception:
 ' 2>/dev/null)
 
   [[ -z "${required_runner}" ]] && continue
+
+  # Durcissement par cohérence avec le filtrage déjà appliqué à "slug" dans
+  # zgp-game-installer.sh : required_runner (clé wine.version) vient du YAML Lutris du jeu,
+  # potentiellement issu d'un .zgp partagé par un tiers et non validé à l'installation sur
+  # ce champ précis. required_runner sert plus bas à construire des chemins sous runner_dir
+  # (test d'existence, et rm -rf en cas d'échec/annulation d'extraction) : sans ce filtre,
+  # une valeur comme "../../..." resterait théoriquement possible ici, même si elle est déjà
+  # neutralisée en pratique par ailleurs (le téléchargement n'a lieu que si cette valeur
+  # correspond exactement au nom d'un asset publié sur la release GitHub officielle).
+  case "${required_runner}" in
+    */*|.|..)
+      continue
+      ;;
+  esac
 
   if [[ -z "${games_needing_runner[${required_runner}]}" ]]; then
     games_needing_runner["${required_runner}"]="${game_name}"
@@ -233,8 +258,8 @@ download_cli() {
 
 # Mince wrapper autour de zgu_gui_download (voir zgu-progress-utils.sh) : téléchargement
 # piloté par pv, pourcentage réel quand la taille de l'asset est connue, sans aucun
-# balayage disque périodique. Conserve le même contrat qu'avant pour l'appelant : imprime
-# le chemin du fichier téléchargé sur stdout en cas de succès uniquement.
+# balayage disque périodique. Imprime le chemin du fichier téléchargé sur stdout en cas
+# de succès uniquement.
 download_gui() {
   local url="$1" runner_name="$2" expected_size="${3:-0}"
   local dest
@@ -258,6 +283,14 @@ verify_checksum() {
   local archive_path="$1" runner_name="$2"
   local expected_digest="${release_asset_digest[${runner_name}]}"
 
+  if [[ -z "${expected_digest}" ]]; then
+    # Avertissement non bloquant (l'extraction se poursuit normalement juste après) :
+    # say() plutôt que say_err(), pour ne pas afficher une popup "erreur" zenity trompeuse
+    # alors qu'aucune vérification n'a en réalité échoué -- GitHub n'a simplement fourni
+    # aucun digest pour cet asset précis.
+    say "$(t check.checksum_missing "${runner_name}")"
+  fi
+
   if ! zgu_sha256_matches "${archive_path}" "${expected_digest}"; then
     say_err "$(t check.checksum_invalid "${runner_name}")"
     return 1
@@ -270,6 +303,11 @@ extract_cli() {
   t check.extract_cli_start "${runner_name}"
   local archive_size
   archive_size=$(stat -c%s "${archive_path}" 2>/dev/null || stat -f%z "${archive_path}" 2>/dev/null)
+  # umask 022 le temps de l'extraction : même garde-fou que zgp-game-installer.sh/
+  # zgr-runner-installer.sh contre un .zgr forgé plantant un fichier trop permissif.
+  local _lpm_old_umask
+  _lpm_old_umask=$(umask)
+  umask 022
   if command -v pv >/dev/null 2>&1; then
     pv -s "${archive_size:-0}" "${archive_path}" | bsdtar -xf - -C "${runner_dir}"
     local tar_exit="${PIPESTATUS[1]}"
@@ -277,13 +315,14 @@ extract_cli() {
     bsdtar -xf "${archive_path}" -C "${runner_dir}"
     local tar_exit=$?
   fi
+  umask "${_lpm_old_umask}"
   [[ "${tar_exit}" -eq 0 ]] && [[ -d "${runner_dir}/${runner_name}" ]]
 }
 
 # Mince wrapper autour de zgu_gui_extract_zstd (voir zgu-progress-utils.sh) : pourcentage
-# réel piloté par pv sur le flux compressé d'entrée, aucun balayage périodique du dossier
-# de sortie (contrairement à l'ancien "du -sb" toutes les 0.2s, coûteux sur un runner
-# volumineux). Sur annulation ou échec, nettoie la cible avant de retourner, comme avant.
+# réel piloté par pv sur le flux compressé d'entrée, sans balayage périodique du dossier
+# de sortie (un "du -sb" répété serait coûteux sur un runner volumineux). Sur annulation
+# ou échec, nettoie la cible avant de retourner.
 extract_gui() {
   local archive_path="$1" runner_name="$2"
   local target_dir="${runner_dir}/${runner_name}"

@@ -18,8 +18,8 @@ if check_flatpak_lutris_installed; then
 elif check_native_lutris_installed "" "${lutris_package_runner_dir}"; then
   runner_dir="${lutris_package_runner_dir}"
 else
-  # Détection explicite (alignée sur les autres scripts de lib/) plutôt que le repli
-  # silencieux vers le chemin natif par défaut utilisé auparavant ici.
+  # Détection explicite (alignée sur les autres scripts de lib/) : évite le repli
+  # silencieux vers un chemin natif par défaut qui masquerait l'absence de Lutris.
   t list_runner.lutris_missing >&2
   exit 1
 fi

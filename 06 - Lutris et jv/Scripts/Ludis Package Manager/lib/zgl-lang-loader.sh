@@ -73,21 +73,27 @@ fi
 # Ajoute elle-même le saut de ligne final (comme le ferait un "echo") : un appel s'utilise
 # directement, "t ma.cle "$arg"", sans l'envelopper dans "echo "$(...)"". Un appel dont le
 # résultat est capturé via "$(...)" (concaténation dans une variable, --text= de zenity...)
-# n'est pas affecté : la substitution de commande retire de toute façon ce saut de ligne
-# final, exactement comme avant.
+# n'est pas affecté : la substitution de commande retire de toute façon ce saut de ligne final.
 # Exemple : t list_games.db_missing "$lutris_db"
 t() {
   local key="$1"
   shift
   local template="${STRINGS[${key}]:-${key}}"
-  # Échappe tout '%' isolé (ex: un pourcentage littéral "50%" dans une traduction
-  # communautaire) avant de l'utiliser comme format printf : sans ça, un tel caractère
-  # cassait silencieusement l'affichage (voire l'appel entier) au lieu de s'afficher tel
-  # quel. On double d'abord tous les '%', puis on restaure uniquement %s et %d en tant que
-  # vrais specifiers -- les seuls utilisés par ce projet (voir commentaire au-dessus).
+  # Protège d'abord les vrais specifiers %s/%d -- les seuls utilisés par ce projet (voir
+  # commentaire au-dessus) -- via des sentinelles (octets de contrôle improbables dans une
+  # traduction), AVANT tout échappement des '%' isolés restants (ex: un pourcentage
+  # littéral "50%" dans une traduction communautaire, qui sans ça casserait silencieusement
+  # l'affichage -- voire l'appel entier -- une fois utilisé comme format printf).
+  # Protéger AVANT d'échapper (plutôt que l'inverse, doubler-puis-restaurer) évite qu'un
+  # "%s"/"%d" non voulu comme specifier, une fois doublé en "%%s"/"%%d", soit malgré tout
+  # restauré comme un vrai specifier au passage suivant : ici, seul un %s/%d présent tel
+  # quel dans la traduction SOURCE (donc un vrai specifier voulu par le traducteur) est
+  # jamais transformé en argument attendu.
+  template="${template//%s/$'\x01'}"
+  template="${template//%d/$'\x02'}"
   template="${template//%/%%}"
-  template="${template//%%s/%s}"
-  template="${template//%%d/%d}"
+  template="${template//$'\x01'/%s}"
+  template="${template//$'\x02'/%d}"
   # shellcheck disable=SC2059
   printf -- "${template}\n" "$@"
 }

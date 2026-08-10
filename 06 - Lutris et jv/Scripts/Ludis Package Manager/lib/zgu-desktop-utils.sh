@@ -8,15 +8,14 @@
 # quelle que soit la langue du système ET même si l'utilisateur a renommé ou
 # déplacé son dossier Bureau depuis les paramètres de son environnement.
 #
-# Remplace l'ancienne détection codée en dur ("Desktop" / "Bureau" uniquement,
-# dupliquée à l'identique dans zgp-game-installer.sh et zgp-game-uninstaller.sh) :
-# un système installé dans une autre langue (allemand "Schreibtisch", espagnol
-# "Escritorio"...) se retrouvait avec un chemin "$HOME/Desktop" inexistant, sans
-# le moindre message d'erreur (le raccourci n'était simplement jamais créé/supprimé,
+# Une détection codée en dur ("Desktop" / "Bureau" uniquement) échouerait sur un
+# système installé dans une autre langue (allemand "Schreibtisch", espagnol
+# "Escritorio"...) : le chemin "$HOME/Desktop" serait inexistant, sans le moindre
+# message d'erreur (le raccourci ne serait simplement jamais créé/supprimé,
 # silencieusement).
 #
-# Se rabat sur l'ancienne heuristique Desktop/Bureau si xdg-user-dir est absent ou
-# ne renvoie rien d'exploitable (environnement minimal sans le paquet xdg-user-dirs).
+# Repli sur l'heuristique Desktop/Bureau si xdg-user-dir est absent ou ne renvoie
+# rien d'exploitable (environnement minimal sans le paquet xdg-user-dirs).
 zgu_get_desktop_dir() {
   if command -v xdg-user-dir >/dev/null 2>&1; then
     local xdg_desktop

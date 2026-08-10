@@ -2,27 +2,22 @@
 
 # --- Utilitaires partagés : barres de progression Zenity unifiées sur le modèle CLI ---
 #
-# Avant ce fichier, les barres Zenity (GUI) et les barres terminal (CLI) de lpm ne
-# suivaient PAS le même mécanisme, pour l'extraction et la compression :
+# GUI et CLI convergent vers un seul et même mécanisme de progression : pv, dont le
+# comptage d'octets est gratuit (aucun balayage disque additionnel, il compte simplement
+# ce qui transite déjà dans le pipe) :
 #   - CLI  : pv lit le flux (compressé en entrée pour l'extraction, non compressé en
 #            entrée pour la compression) et donne un pourcentage réel, exact, sans jamais
 #            balayer le système de fichiers.
-#   - GUI  : tar/zstd étaient lancés en arrière-plan, puis un pourcentage était RE-DEVINÉ
-#            en scrutant périodiquement (toutes les 0.2 à 0.3s) soit la taille du dossier
-#            de sortie via "du -sb" (extraction), soit une estimation arbitraire du niveau
-#            de compression (compression). Le cas de l'extraction est le plus problématique :
-#            "du -sb" sur un dossier qui grossit est un balayage récursif RÉPÉTÉ de tout
-#            l'arbre déjà extrait, à chaque tick, en concurrence directe avec l'extraction
-#            elle-même -- pour un paquet de jeu de plusieurs centaines de Go, ce balayage
-#            répété devient un coût non négligeable, exactement le genre de surcoût à éviter.
+#   - GUI  : même flux pv, avec sa sortie numérique (-n) redirigée vers Zenity au lieu du
+#            terminal. Un pourcentage GUI deviné en scrutant périodiquement le système de
+#            fichiers (ex: "du -sb" répété sur le dossier de sortie pendant l'extraction)
+#            serait un balayage récursif RÉPÉTÉ de tout l'arbre déjà extrait, à chaque tick,
+#            en concurrence directe avec l'extraction elle-même -- pour un paquet de jeu de
+#            plusieurs centaines de Go, ce coût devient non négligeable.
 #
-# Ce fichier fait converger GUI et CLI vers un seul et même mécanisme : pv, dont le
-# comptage d'octets est gratuit (aucun balayage disque additionnel, il compte simplement
-# ce qui transite déjà dans le pipe), avec sa sortie numérique (-n) redirigée vers Zenity
-# au lieu du terminal. Le seul balayage disque qui subsiste est le "du -sb" INITIAL et
-# UNIQUE du dossier source avant compression (nécessaire pour connaître la taille totale à
-# donner à "pv -s") : il existait déjà identiquement en mode CLI (donc aucun coût nouveau
-# introduit ici), et n'est jamais répété pendant l'opération.
+# Le seul balayage disque qui subsiste est le "du -sb" INITIAL et UNIQUE du dossier source
+# avant compression (nécessaire pour connaître la taille totale à donner à "pv -s"), et
+# n'est jamais répété pendant l'opération.
 #
 # Ce fichier ne fait AUCUNE decision d'affichage de message d'erreur/annulation : chaque
 # appelant reste responsable de son propre message (traductions différentes selon le
@@ -65,6 +60,10 @@ zgu_gui_extract_zstd() {
   tar_exit_file=$(mktemp)
 
   (
+    # umask 022 le temps de l'extraction : même garde-fou que les chemins CLI équivalents
+    # (voir zgp-game-installer.sh) contre un .zgp/.zgr forgé plantant un fichier trop
+    # permissif. Portée limitée à ce sous-shell, pas de restauration nécessaire.
+    umask 022
     pv -n -s "${archive_size}" "${archive_path}" | bsdtar -xf - -C "${dest_dir}"
     echo "${PIPESTATUS[1]}" > "${tar_exit_file}"
   ) 2>&1 | zenity --progress --title="${zen_title}" --text="${zen_text}" --percentage=0 --auto-close --width=500 2>/dev/null
@@ -94,12 +93,10 @@ zgu_gui_extract_zstd() {
 #
 # Compresse "<parent_dir>/<item_name>" en <archive_path> avec une barre de progression
 # Zenity réelle, pilotée par pv sur le flux tar D'ENTRÉE (mesure ce qui a déjà été lu
-# depuis le dossier source, exactement comme en mode CLI aujourd'hui) plutôt que l'ancien
-# mécanisme GUI qui devinait un pourcentage arbitraire à partir du niveau de compression
-# en scrutant la taille du fichier archive déjà écrit.
+# depuis le dossier source, comme en mode CLI).
 #
 # Le seul balayage disque effectué est le "du -sb" initial et unique sur le dossier
-# source, identique à celui déjà utilisé en mode CLI (donc aucun coût nouveau).
+# source, identique à celui utilisé en mode CLI.
 #
 # Retourne 0 (succès), 1 (échec compression, archive déjà supprimée) ou 2 (annulé par
 # l'utilisateur, archive déjà supprimée).
@@ -143,6 +140,11 @@ zgu_gui_compress_zstd() {
     rm -f "${archive_path}"
     return 1
   fi
+
+  # L'archive (.zgp/.zgr) peut embarquer des données sensibles (registre Wine : clés de
+  # licence, chemins...) : restreint aux seuls droits du propriétaire, même raison que
+  # les chemins CLI équivalents (voir zgp-game-packer.sh/zgr-runner-packer.sh).
+  chmod 600 "${archive_path}"
   return 0
 }
 
@@ -156,7 +158,7 @@ zgu_gui_compress_zstd() {
 #
 # Retourne 0 (succès), 1 (échec : fichier vide ou absent) ou 2 (annulé par l'utilisateur --
 # uniquement possible quand la taille est connue, la barre indéterminée n'étant pas
-# annulable, comme avant).
+# annulable).
 zgu_gui_download() {
   local url="$1" dest="$2" expected_size="${3:-0}" zen_title="$4" zen_text="$5"
 

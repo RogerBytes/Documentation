@@ -19,9 +19,9 @@ source "${script_dir}/zgu-progress-utils.sh"
 OUTPUT_DIR="${HOME}"
 
 # Configuration des chemins Lutris (Flatpak vs paquet natif), avec la même détection que
-# tous les autres scripts de lib/ (via zgu-lutris-utils.sh) plutôt que le test d'existence
-# de fichiers résiduels utilisé auparavant ici, qui pouvait lire la mauvaise base de
-# données si un ancien profil Flatpak ou natif traînait encore sur le disque.
+# tous les autres scripts de lib/ (via zgu-lutris-utils.sh). Un test d'existence de fichiers
+# résiduels pourrait lire la mauvaise base de données si un ancien profil Flatpak ou natif
+# traîne encore sur le disque, d'où l'usage de la détection centralisée.
 lutris_flatpak_db="${HOME}/.var/app/net.lutris.Lutris/data/lutris/pga.db"
 lutris_package_db="${HOME}/.local/share/lutris/pga.db"
 
@@ -42,10 +42,9 @@ elif check_native_lutris_installed "${lutris_package_db}" ""; then
   lutris_config_dir="${lutris_package_config_dir}"
   lutris_system_file="${lutris_package_system_file}"
 else
-  # Détection explicite (alignée sur les autres scripts de lib/) plutôt que le repli
-  # silencieux vers les chemins natifs utilisé auparavant ici : sans Lutris installé,
-  # l'utilisateur obtenait un message "dossier introuvable" plus tard dans le script,
-  # bien moins clair que la vraie cause.
+  # Détection explicite (alignée sur les autres scripts de lib/) : un repli silencieux
+  # vers les chemins natifs donnerait un message "dossier introuvable" plus tard dans le
+  # script, bien moins clair que la vraie cause (Lutris non installé).
   if [[ ${#cli_games[@]} -gt 0 ]]; then
     t pack_game.lutris_missing_cli >&2
   else
@@ -57,20 +56,18 @@ fi
 # Chemin Games personnalisé (si défini dans Lutris) : même lecture dynamique que dans
 # zgp-game-installer.sh et zgp-game-uninstaller.sh. Cette préférence globale vit dans
 # system.yml ("system: game_path:"), PAS dans runners/wine.yml (qui ne contient que des
-# options propres au runner Wine, comme system_winetricks/version) -- erreur initialement
-# commise ici (et dans installer/uninstaller) en supposant le mauvais fichier.
+# options propres au runner Wine, comme system_winetricks/version).
 if [[ -f "${lutris_system_file}" ]]; then
   extracted_path=$(awk -F': ' '/^[[:space:]]*game_path:/ {print $2}' "${lutris_system_file}")
   [[ -n "${extracted_path}" ]] && GAMES_DIR="${extracted_path}"
 fi
 
 # Anonymise tout chemin utilisateur (Windows "Users\\<nom>\\" / "Users\<nom>\" et
-# POSIX "/home/<nom>/") vers "anonuser", quel que soit le nom d'utilisateur rencontré.
-# Remplace l'ancienne liste figée (user_array=("$USER" "johndoe")) : celle-ci ne
-# scrubait QUE les noms explicitement listés, donc silencieusement rien pour tout
-# autre nom d'utilisateur (ancien testeur, autre machine, .reg hérité...). Le YAML
-# embarqué était déjà nettoyé dynamiquement de cette façon (voir plus bas dans ce
-# fichier) ; ce n'était pas le cas pour les .reg / goglog.ini / lutris.json.
+# POSIX "/home/<nom>/") vers "anonuser", quel que soit le nom d'utilisateur rencontré :
+# une liste figée de noms connus laisserait passer silencieusement tout autre nom
+# d'utilisateur (ancien testeur, autre machine, .reg hérité...). Le YAML embarqué est
+# nettoyé dynamiquement de la même façon (voir plus bas dans ce fichier) ; les .reg /
+# goglog.ini / lutris.json passent par cette fonction commune.
 anonymize_user_paths() {
   local f="$1"
   [[ -f "${f}" ]] || return 0
@@ -143,9 +140,10 @@ fi
 
 # Résout un slug Lutris (jeu runner='wine') vers le chemin réel et sûr de son préfixe.
 # Découverte via pga.db (colonne "directory") plutôt que par scan de GAMES_DIR/*/ à un seul
-# niveau : l'ancien scan ratait tout jeu imbriqué plus profondément (ex: gog/<jeu>/, comme
-# les jeux GOG de Lutris) et, pire, empaquetait un dossier intermédiaire (ex: "gog/") en
-# bloc si plusieurs jeux y vivaient, mélangeant leurs préfixes dans une seule archive.
+# niveau : un scan à un seul niveau raterait tout jeu imbriqué plus profondément (ex:
+# gog/<jeu>/, comme les jeux GOG de Lutris) et, pire, empaquetterait un dossier
+# intermédiaire (ex: "gog/") en bloc si plusieurs jeux y vivaient, mélangeant leurs
+# préfixes dans une seule archive.
 # "directory" peut provenir de N'IMPORTE QUEL jeu wine de la base pga.db, pas uniquement
 # ceux gérés par lpm : même garde anti-évasion que zgp-game-uninstaller.sh (le chemin
 # résolu doit rester un sous-dossier réel de GAMES_DIR).
@@ -392,10 +390,10 @@ with open(os.path.join(os.environ['WINEPREFIX_DIR_ENV'], 'zgp-meta.json'), 'w') 
     # Le préfixe absolu du wineprefix (ex: /home/harry/Games/mariovania) est remplacé par
     # le placeholder natif de Lutris "$GAMEDIR" dans tous les chemins du YAML embarqué,
     # résolu dynamiquement à l'installation d'après le dossier de jeux réellement configuré
-    # chez l'utilisateur qui installe (voir zgp-game-installer.sh). Auparavant, seul le
-    # segment "/home/<nom>/" était anonymisé : le reste du chemin (nom du dossier de jeux)
-    # restait figé tel quel dans le paquet, cassant toute installation avec un dossier de
-    # jeux personnalisé ou différent de celui de la machine ayant créé le paquet.
+    # chez l'utilisateur qui installe (voir zgp-game-installer.sh). Le remplacement doit
+    # couvrir tout le chemin (pas seulement le segment "/home/<nom>/") : sinon, un dossier
+    # de jeux personnalisé ou différent de celui de la machine ayant créé le paquet reste
+    # figé dans le YAML et casse l'installation.
     YML_PATH="${WINEPREFIX_DIR}/zgp-game-config.yml" WINEPREFIX_DIR_ENV="${WINEPREFIX_DIR}" DEFAULT_RUNNER="${default_runner}" ERR_YAML_LABEL="$(t pack_game.yaml_cleanup_error)" python3 -c '
 import yaml, re, os
 
@@ -422,8 +420,8 @@ try:
                 if prefix_pattern:
                     s = re.sub(prefix_pattern + r"(?=/|$)", "$GAMEDIR", s)
                 # Filet de sécurité : anonymise tout chemin utilisateur qui référencerait
-                # encore /home/<nom> en dehors du prefix (comportement précédent conservé
-                # en complément, pour tout chemin non couvert par le placeholder ci-dessus)
+                # encore /home/<nom> en dehors du prefix, pour tout chemin non couvert par
+                # le placeholder ci-dessus
                 s = re.sub(r"/home/[^/]+/", "/home/anonuser/", s)
                 return s
             return obj
@@ -471,14 +469,16 @@ except Exception as e:
       exit 1
     fi
 
+    # Le .zgp peut embarquer des données sensibles (registre Wine : clés de licence,
+    # chemins...) : restreint aux seuls droits du propriétaire pour éviter qu'un autre
+    # utilisateur local de la même machine puisse le lire avant un partage volontaire.
+    chmod 600 "${archive_path}"
+
     t pack_game.done_cli "${archive_path}"
   else
     # MODE INTERACTIF : délégué à zgu_gui_compress_zstd (voir zgu-progress-utils.sh) :
     # pourcentage réel piloté par pv sur le flux tar d'entrée, exactement le même mécanisme
-    # que le mode CLI ci-dessus, au lieu de l'ancienne estimation arbitraire par niveau
-    # ("85 - niveau*2 %"). L'ancienne animation de préparation (20/60/90% avec sleep) a
-    # disparu : purement décorative, elle ne faisait que retarder le démarrage de la
-    # vraie compression sans raison.
+    # que le mode CLI ci-dessus.
     zgu_gui_compress_zstd "${PARENT_DIR}" "${WINEPREFIX_NAME}" "${archive_path}" "${LEVEL}" \
       "$(t pack_game.export_title "${ARCHIVE_NAME}")" \
       "$(t pack_game.export_text "${LEVEL}")"

@@ -132,6 +132,15 @@ while IFS=$'\x1f' read -r game_name game_slug game_dir; do
   [[ -z "${game_name}" ]] && continue
   [[ -n "${blacklisted_slugs[${game_slug}]:-}" ]] && continue
 
+  # game_name (colonne "name" de la table Lutris) peut provenir de N'IMPORTE QUEL jeu wine
+  # de la base, pas uniquement de ceux installés par lpm (jeu ajouté manuellement dans
+  # Lutris, base éditée à la main...) : zgp-game-installer.sh neutralise déjà tout "/" dans
+  # game_real_name avant de l'écrire en base ("${game_real_name//\//-}"), mais un jeu ajouté
+  # hors lpm peut contourner ce filtre. game_name sert plus bas à construire des chemins de
+  # suppression ("${desktop_dir}/${game_name} ...") : sans ce même filtre ici, un "/" dans
+  # le nom ferait cibler un chemin incorrect au lieu du raccourci voulu.
+  game_name="${game_name//\//-}"
+
   [[ -z "${game_dir}" ]] && game_dir="${games_dir}/${game_slug}"
 
   slug_by_name["${game_name}"]="${game_slug}"
@@ -268,6 +277,22 @@ if [[ ${#cli_games[@]} -gt 0 ]]; then
     t uninstall_game.progress_cli "${current}" "${total_games}" "${game_name}"
 
     game_slug="${slug_by_name[${game_name}]}"
+
+    # game_slug vient de la colonne "slug" de la base Lutris, qui peut provenir de
+    # N'IMPORTE QUEL jeu wine de la base, pas uniquement de ceux installés par lpm (jeu
+    # ajouté manuellement, base éditée à la main...) -- même remarque que pour game_name
+    # plus haut dans ce fichier. game_slug sert plus bas à construire des chemins de
+    # suppression (rm -f "${lutris_config_dir}/${game_slug}-"*.yml,
+    # "${desktop_dir}/${game_slug}.desktop", etc.) : sans ce filtre, un "/" ou "../" dans
+    # ce slug pourrait faire cibler un chemin hors de son dossier attendu. Même filtre de
+    # rejet que celui appliqué à "slug" dans zgp-game-installer.sh.
+    case "${game_slug}" in
+      */*|.|..|*[$'\n\r\t']*)
+        t uninstall_game.unsafe_prefix_skip "${game_name}" "${game_slug}" >&2
+        continue
+        ;;
+    esac
+
     # Échappement par cohérence avec zgp-game-installer.sh : ces slugs viennent de la base
     # Lutris elle-même (donc fiables en pratique), mais toute valeur interpolée dans une
     # requête SQL doit l'être de façon homogène dans tout le projet.
@@ -308,6 +333,17 @@ else
       t uninstall_game.progress_gui "${game_name}" "${current}" "${total_games}"
 
       game_slug="${slug_by_name[${game_name}]}"
+
+      # Voir le commentaire détaillé équivalent dans le bloc CLI plus haut dans ce fichier :
+      # game_slug peut provenir de n'importe quelle entrée de la base Lutris, pas
+      # uniquement de celles installées par lpm.
+      case "${game_slug}" in
+        */*|.|..|*[$'\n\r\t']*)
+          t uninstall_game.unsafe_prefix_skip "${game_name}" "${game_slug}" >&2
+          continue
+          ;;
+      esac
+
       safe_game_slug="${game_slug//\'/\'\'}"
       prefix_dir=$(sqlite3 "${lutris_db}" "SELECT directory FROM games WHERE slug='${safe_game_slug}';")
       [[ -z "${prefix_dir}" ]] && prefix_dir="${dir_by_name[${game_name}]}"

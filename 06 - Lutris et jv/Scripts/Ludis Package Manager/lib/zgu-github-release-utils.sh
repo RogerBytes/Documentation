@@ -2,11 +2,10 @@
 
 # --- Utilitaires partagés pour les interactions avec la release GitHub des runners ---
 #
-# Regroupe la logique auparavant dupliquée entre zgc-dependency-checker.sh et
-# zgr-runner-installer.sh (et déjà en partie zgr-runner-remote-lister.sh) : construction
-# de l'URL d'API GitHub à partir de l'URL de la page de release, récupération silencieuse
-# d'une URL (curl si dispo, sinon wget), et vérification d'un digest SHA256 au format
-# "sha256:<hash>" tel que renvoyé par l'API GitHub.
+# Regroupe la logique commune à zgc-dependency-checker.sh, zgr-runner-installer.sh et
+# zgr-runner-remote-lister.sh : construction de l'URL d'API GitHub à partir de l'URL de
+# la page de release, récupération silencieuse d'une URL (curl si dispo, sinon wget), et
+# vérification d'un digest SHA256 au format "sha256:<hash>" tel que renvoyé par l'API GitHub.
 #
 # Ce fichier ne fait AUCUN affichage (pas de zenity, pas d'echo/say_err) : chaque appelant
 # reste responsable de son propre message d'erreur et de son propre nettoyage en cas
@@ -36,7 +35,7 @@ zgu_fetch_url() {
     # -f : en cas d'erreur HTTP (ex: rate-limit ou 404 de l'API GitHub), curl échoue
     # silencieusement (sortie vide, code de retour non nul) au lieu de renvoyer le corps
     # JSON de l'erreur comme s'il s'agissait d'une réponse valide. Sans ce flag, un tel
-    # corps ("assets" absent) était auparavant confondu par les appelants avec une vraie
+    # corps ("assets" absent) pourrait être confondu par les appelants avec une vraie
     # réponse "aucun runner disponible", masquant le vrai problème réseau/API.
     curl -sf "${url}"
   elif command -v wget >/dev/null 2>&1; then
@@ -48,8 +47,8 @@ zgu_fetch_url() {
 
 # Compare le SHA256 d'un fichier local à un digest attendu au format "sha256:<hash>" (tel que
 # renvoyé par le champ "digest" des assets de l'API GitHub). Un digest vide signifie que GitHub
-# n'en a fourni aucun pour cet asset : dans ce cas, comme avant factorisation dans les trois
-# appelants, on considère qu'il n'y a rien à vérifier et on retourne 0 (succès).
+# n'en a fourni aucun pour cet asset : dans ce cas, il n'y a rien à vérifier et la fonction
+# retourne 0 (succès).
 # Retourne 0 si les hashs correspondent (ou si expected_digest est vide), 1 sinon.
 zgu_sha256_matches() {
   local archive_path="$1"

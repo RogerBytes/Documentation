@@ -33,10 +33,9 @@ if check_flatpak_lutris_installed; then
 elif check_native_lutris_installed "" "${lutris_package_runner_dir}"; then
   runner_dir="${lutris_package_runner_dir}"
 else
-  # Détection explicite (alignée sur les autres scripts de lib/) plutôt que le repli
-  # silencieux vers le chemin natif par défaut utilisé auparavant ici : sans Lutris
-  # installé, l'utilisateur obtenait un message "dossier introuvable" plus loin dans
-  # le script, bien moins clair que la vraie cause.
+  # Détection explicite (alignée sur les autres scripts de lib/) : un repli silencieux
+  # vers le chemin natif par défaut donnerait un message "dossier introuvable" plus loin
+  # dans le script, bien moins clair que la vraie cause (Lutris non installé).
   if [[ ${#cli_runners[@]} -gt 0 ]]; then
     t pack_runner.lutris_missing_cli >&2
   else
@@ -203,12 +202,14 @@ for runner in "${runners_to_export[@]}"; do
       exit 1
     fi
 
+    # Restreint aux seuls droits du propriétaire, par cohérence avec zgp-game-packer.sh.
+    chmod 600 "${archive_path}"
+
     t pack_runner.done_cli "${archive_path}"
   else
     # --- MODE INTERACTIF : délégué à zgu_gui_compress_zstd (voir zgu-progress-utils.sh) :
     # pourcentage réel piloté par pv sur le flux tar d'entrée, exactement le même mécanisme
-    # que le mode CLI ci-dessus, au lieu de l'ancienne scrutation "stat" toutes les 0.3s
-    # sur un pourcentage estimé arbitrairement à 40% de la taille source. ---
+    # que le mode CLI ci-dessus. ---
     zgu_gui_compress_zstd "${runner_dir}" "${runner}" "${archive_path}" "${LEVEL}" \
       "$(t pack_runner.export_title "${ARCHIVE_NAME}")" \
       "$(t pack_runner.export_text "${LEVEL}")"

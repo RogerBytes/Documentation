@@ -46,13 +46,14 @@ L'application est minimaliste mais requiert plusieurs dépendances :
 - pv
 - grep
 - awk
+- zenity (interface graphique : menu principal, sélection de fichiers, barres de progression — requis dès qu'une commande n'est pas lancée en mode CLI strict avec cible explicite)
 
 ### Ubuntu
 
 Sur une Debian / Ubuntu (et dérivées comme Linux Mint)
 
 ```bash
-sudo apt install -y tar zstd curl wget python3 python3-yaml sqlite3 pv libarchive-tools
+sudo apt install -y tar zstd curl wget python3 python3-yaml sqlite3 pv libarchive-tools zenity
 flatpak install -y flathub net.lutris.Lutris
 ```
 
@@ -65,7 +66,7 @@ Sur cinnamon il faut activer les nouvelles fenêtres lancée d'un terminal
 Sur une Arch Linux (et dérivées comme Manjaro)
 
 ```bash
-sudo pacman -S --needed tar zstd curl wget python python-yaml sqlite pv bsdtar
+sudo pacman -S --needed tar zstd curl wget python python-yaml sqlite pv bsdtar zenity
 flatpak install -y flathub net.lutris.Lutris
 ```
 
@@ -74,7 +75,7 @@ flatpak install -y flathub net.lutris.Lutris
 Sur une Fedora (et dérivées comme RHEL)
 
 ```bash
-sudo dnf install -y tar zstd curl wget python3 python3-pyyaml sqlite pv bsdtar
+sudo dnf install -y tar zstd curl wget python3 python3-pyyaml sqlite pv bsdtar zenity
 flatpak install -y flathub net.lutris.Lutris
 ```
 
@@ -83,7 +84,7 @@ flatpak install -y flathub net.lutris.Lutris
 Sur une OpenSUSE (et dérivées comme Leap)
 
 ```bash
-sudo zypper install -y tar zstd curl wget python3 python3-PyYAML sqlite3 pv bsdtar
+sudo zypper install -y tar zstd curl wget python3 python3-PyYAML sqlite3 pv bsdtar zenity
 flatpak install -y flathub net.lutris.Lutris
 ```
 

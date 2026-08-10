@@ -15,7 +15,7 @@ source "${script_dir}/zgu-lutris-utils.sh"
 lutris_flatpak_runner_dir="${HOME}/.var/app/net.lutris.Lutris/data/lutris/runners/wine"
 lutris_package_runner_dir="${HOME}/.local/share/lutris/runners/wine"
 
-# GITHUB_RELEASE_URL est désormais définie dans zgu-github-release-utils.sh (sourcé plus haut),
+# GITHUB_RELEASE_URL est définie dans zgu-github-release-utils.sh (sourcé plus haut),
 # seul endroit à modifier pour changer le dépôt/la release des runners.
 
 # 1. Vérification des dépendances nécessaires

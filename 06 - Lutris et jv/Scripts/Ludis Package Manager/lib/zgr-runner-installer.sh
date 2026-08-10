@@ -27,7 +27,7 @@ is_double_click=false
 lutris_flatpak_runner_dir="${HOME}/.var/app/net.lutris.Lutris/data/lutris/runners/wine"
 lutris_package_runner_dir="${HOME}/.local/share/lutris/runners/wine"
 
-# GITHUB_RELEASE_URL est désormais définie dans zgu-github-release-utils.sh (sourcé plus haut),
+# GITHUB_RELEASE_URL est définie dans zgu-github-release-utils.sh (sourcé plus haut),
 # seul endroit à modifier pour changer le dépôt/la release des runners.
 
 # Tags de source réutilisés (affichage ET comparaisons de logique) - traduits une seule fois
@@ -116,9 +116,9 @@ download_runner() {
 
 # Extrait une archive .zgr avec barre de progression Zenity réelle. Mince wrapper autour de
 # zgu_gui_extract_zstd (voir zgu-progress-utils.sh) : pourcentage réel piloté par pv sur le
-# flux compressé d'entrée, aucun balayage périodique du dossier de sortie (contrairement à
-# l'ancien "du -sb" toutes les 0.2s, coûteux sur un runner volumineux). Factorise le bloc
-# autrefois dupliqué 3 fois (import de masse, import externe, import en ligne).
+# flux compressé d'entrée, sans balayage périodique du dossier de sortie (un "du -sb" répété
+# serait coûteux sur un runner volumineux). Factorise le bloc partagé par les 3 imports
+# (import de masse, import externe, import en ligne).
 # Codes de retour : 0 = succès | 1 = archive corrompue (déjà nettoyée + message affiché)
 #                   2 = annulé par l'utilisateur (déjà nettoyé, PAS de message affiché : au
 #                       caller de décider s'il informe l'utilisateur et/ou s'il quitte)
@@ -269,6 +269,14 @@ except Exception:
         continue
       fi
 
+      # Avertissement non bloquant : GitHub ne fournit pas toujours un digest pour chaque
+      # asset. Sans lui, aucune vérification d'intégrité n'est possible (zgu_sha256_matches
+      # retourne alors "succès" par convention) -- on le signale explicitement plutôt que
+      # de laisser ce cas totalement silencieux.
+      if [[ -z "${expected_digest}" ]]; then
+        t install_runner.checksum_missing_cli "${runner_name}" >&2
+      fi
+
       if ! zgu_sha256_matches "${archive_path}" "${expected_digest}"; then
         t install_runner.checksum_invalid_cli "${runner_name}" >&2
         rm -rf "${temp_cli_dir}"
@@ -280,8 +288,13 @@ except Exception:
     archive_size=$(stat -c%s "${archive_path}" 2>/dev/null || stat -f%z "${archive_path}" 2>/dev/null)
     # bsdtar (et non tar -I zstd) : voir le commentaire sur la vérification des dépendances
     # plus haut dans ce fichier pour le détail des protections SECURE_NODOTDOT/SECURE_SYMLINKS.
+    # umask 022 le temps de l'extraction : même garde-fou que zgp-game-installer.sh contre
+    # un .zgr forgé plantant un fichier trop permissif (777) ou illisible (000).
+    _lpm_old_umask=$(umask)
+    umask 022
     pv -s "${archive_size:-0}" "${archive_path}" | bsdtar -xf - -C "${lutris_runner_dir}"
     tar_exit="${PIPESTATUS[1]}"
+    umask "${_lpm_old_umask}"
 
     [[ "${src}" = "distant" ]] && rm -rf "${temp_cli_dir}"
 
@@ -348,9 +361,9 @@ if [[ ${#cli_targets[@]} -eq 1 ]] && [[ "${is_double_click}" = true ]] && [[ -f 
 
     if [[ "${extract_status}" -eq 2 ]]; then
       # Annulé par l'utilisateur : mêmes sémantiques que le mode "en ligne" plus bas dans
-      # ce fichier. Auparavant, le code retour n'était pas vérifié ici : une annulation en
-      # cours d'extraction passait inaperçue et le lot continuait silencieusement avec le
-      # runner suivant au lieu de s'arrêter.
+      # ce fichier. Le code retour doit être vérifié ici, sinon une annulation en cours
+      # d'extraction passe inaperçue et le lot continue silencieusement avec le runner
+      # suivant au lieu de s'arrêter.
       zenity --info --title="$(t install_runner.cancel_title)" --text="$(t install_runner.import_cancelled_text)" 2>/dev/null
       exit 0
     fi
@@ -387,7 +400,7 @@ try:
             print(f"{name}\x1f{url}\x1f{size}\x1f{digest}")
 except Exception:
     pass
-' "${release_json}")
+' "${release_json}" 2>/dev/null)
     while IFS=$'\x1f' read -r asset_name download_url asset_size asset_digest; do
       [[ -z "${asset_name}" ]] && continue
       runner_name="${asset_name%.zgr}"
@@ -525,6 +538,13 @@ for runner_name in "${runners_to_install[@]}"; do
     fi
 
     expected_digest="${digest_by_name[${runner_name}]}"
+
+    # Avertissement non bloquant (même remarque que le mode CLI plus haut dans ce fichier) :
+    # info et non erreur, l'installation se poursuit normalement juste après.
+    if [[ -z "${expected_digest}" ]]; then
+      zenity --info --text="$(t install_runner.checksum_missing_gui "${runner_name}")" 2>/dev/null
+    fi
+
     if ! zgu_sha256_matches "${archive_path}" "${expected_digest}"; then
       zenity --error --text="$(t install_runner.checksum_invalid_gui "${runner_name}")" 2>/dev/null
       rm -f "${archive_path}"

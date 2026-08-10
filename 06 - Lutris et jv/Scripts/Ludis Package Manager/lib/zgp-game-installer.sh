@@ -236,14 +236,21 @@ for name in "${games_to_install[@]}"; do
     t install_game.importing_cli "${name}"
     # bsdtar (et non tar -I zstd) : voir le commentaire sur la vérification des dépendances
     # plus haut dans ce fichier pour le détail des protections SECURE_NODOTDOT/SECURE_SYMLINKS.
+    # umask 022 le temps de l'extraction : bsdtar préserve par défaut les bits de permission
+    # d'origine de l'archive, sans "--no-same-permissions". Sans ce garde-fou, un .zgp
+    # forgé par un tiers pouvait planter un fichier monde-inscriptible (777) dans le
+    # dossier de jeux -- exploitable par un autre utilisateur local sur une machine
+    # partagée -- ou un fichier illisible (000) pour saboter silencieusement l'installation.
+    _lpm_old_umask=$(umask)
+    umask 022
     pv -s "${file_size:-0}" "${filepath}" | bsdtar -xf - -C "${temp_extract_dir}"
     tar_exit="${PIPESTATUS[1]}"
+    umask "${_lpm_old_umask}"
   else
     # Délégué à zgu_gui_extract_zstd (voir zgu-progress-utils.sh) : même mécanisme pv que
-    # le bloc CLI ci-dessus, factorisé et partagé avec les autres scripts de lib/. Sur
-    # annulation (statut 2), on distingue maintenant explicitement ce cas -- auparavant
-    # une annulation utilisateur ici tombait dans le même message "archive corrompue" que
-    # les vrais échecs de tar, faute de vérifier le statut de sortie de Zenity.
+    # le bloc CLI ci-dessus, factorisé et partagé avec les autres scripts de lib/. Le statut
+    # de sortie de Zenity est vérifié : une annulation (statut 2) doit être distinguée des
+    # vrais échecs de tar plutôt que de tomber dans le même message "archive corrompue".
     zgu_gui_extract_zstd "${filepath}" "${temp_extract_dir}" \
       "$(t install_game.importing_gui_title "${name}")" \
       "$(t install_game.decompressing_gui_text)"
@@ -500,11 +507,11 @@ except Exception as e:
       rm -f "${bundled_yml}"
 
       # Chemin de l'exécutable relu depuis le YAML DÉJÀ PATCHÉ (game.prefix, "$GAMEDIR"
-      # et "/home/<user>" déjà résolus vers cette machine ci-dessus), et non plus depuis
-      # le YAML brut embarqué dans le paquet : sinon le "$GAMEDIR" littéral (ou l'ancien
-      # "anonuser" du paquetage) se retrouvait tel quel dans la base Lutris, pointant vers
-      # un chemin inexistant dès qu'on installait sur une autre machine ou un dossier de
-      # jeux différent de celui de la machine ayant créé le paquet.
+      # et "/home/<user>" déjà résolus vers cette machine ci-dessus), et non depuis le YAML
+      # brut embarqué dans le paquet : sinon le "$GAMEDIR" littéral (ou le "anonuser" du
+      # paquetage) se retrouverait tel quel dans la base Lutris, pointant vers un chemin
+      # inexistant dès qu'on installe sur une autre machine ou un dossier de jeux différent
+      # de celui de la machine ayant créé le paquet.
       if [[ -f "${yml_config_file}" ]]; then
         executable_path=$(YML_OUT="${yml_config_file}" python3 -c '
 import os, yaml
@@ -551,6 +558,12 @@ EOF
     icon_path="lutris_${slug}"
     if [[ -d "${prefix_dir}/icon" ]]; then
       icon_file=$(find "${prefix_dir}/icon" -maxdepth 1 -type f \( -name "*.png" -o -name "*.ico" -o -name "*.svg" -o -name "*.xpm" \) -print -quit 2>/dev/null)
+      # icon_file est un nom de fichier réel extrait du .zgp (donc potentiellement forgé par
+      # un tiers, comme slug plus haut) et injecté tel quel dans "Icon=${icon_path}" du .desktop
+      # généré plus bas : un \n dans ce nom de fichier pourrait ajouter une ligne "Exec="
+      # arbitraire, avec le même impact que pour slug (exécution silencieuse au double-clic,
+      # le .desktop étant marqué "metadata::trusted true"). Même filtre que pour slug.
+      icon_file="${icon_file//[$'\n\r\t']/}"
       [[ -n "${icon_file}" ]] && icon_path="${icon_file}"
     fi
 
