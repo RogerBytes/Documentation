@@ -474,7 +474,7 @@ zgp_isolate_one() {
   # plutôt que par "slug" pour le DELETE ci-dessous évite de toucher la ligne du
   # launcher partagé dans tous les cas, pas seulement pour EA.
   local old_row old_id old_executable old_configpath old_installer_slug
-  old_row=$(sqlite3 "${lutris_db}" "SELECT id || char(31) || executable || char(31) || configpath || char(31) || installer_slug FROM games WHERE slug='${safe_slug}' AND directory='${giga_dir//\'/\'\'}' LIMIT 1;" 2>/dev/null)
+  old_row=$(sqlite3 "${lutris_db}" "SELECT COALESCE(id,'') || char(31) || COALESCE(executable,'') || char(31) || COALESCE(configpath,'') || char(31) || COALESCE(installer_slug,'') FROM games WHERE slug='${safe_slug}' AND directory='${giga_dir//\'/\'\'}' LIMIT 1;" 2>/dev/null)
   IFS=$'\x1f' read -r old_id old_executable old_configpath old_installer_slug <<< "${old_row}"
   # Sécurité : "id" vient lui aussi de la base Lutris, potentiellement éditée à la main
   # (même méfiance que pour "directory"/"configpath" ci-dessous). Contrairement à ces
