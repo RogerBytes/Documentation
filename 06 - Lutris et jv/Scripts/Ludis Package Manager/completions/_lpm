@@ -1,0 +1,145 @@
+#compdef lpm
+
+# --- Complétion zsh pour lpm ---
+#
+# Complète les sous-commandes, les options (-y, -niveau) et, dynamiquement, les slugs de
+# jeux / noms de runners déjà installés -- en interrogeant lpm lui-même ("lpm list" /
+# "lpm list-runner"), jamais la base Lutris directement : ça évite de dupliquer ici la
+# logique de détection Flatpak/paquet natif et le filtrage des jeux blacklistés (giga-
+# préfixes partagés), qui ne vivent qu'à un seul endroit (zgu-lutris-utils.sh).
+#
+# Installation manuelle (si install.sh ne l'a pas déjà fait) :
+#   1. Copier ce fichier dans un dossier de votre $fpath, ex :
+#        mkdir -p ~/.zsh/completions && cp completions/_lpm ~/.zsh/completions/
+#      puis, dans .zshrc, AVANT "autoload -Uz compinit && compinit" :
+#        fpath=(~/.zsh/completions $fpath)
+#   2. Régénérer le cache de complétion une fois :
+#        rm -f ~/.zcompdump && compinit
+
+_lpm_commands() {
+  local -a commands
+  commands=(
+    'install:Installer un ou plusieurs jeux (.zgp)'
+    'install-runner:Installer un runner Wine/Proton (.zgr ou nom distant)'
+    'uninstall:Désinstaller un ou plusieurs jeux installés'
+    'uninstall-runner:Désinstaller un ou plusieurs runners installés'
+    'pack:Empaqueter un ou plusieurs jeux installés en .zgp'
+    'pack-runner:Empaqueter un ou plusieurs runners installés en .zgr'
+    'isolate:Isoler un jeu d'\''un giga-préfixe partagé (Epic/EA/Ubisoft/Battle.net)'
+    'list:Lister les jeux installés'
+    'list-isolable:Lister les jeux isolables (store à viser)'
+    'info:Afficher les métadonnées d'\''un jeu installé'
+    'list-runner:Lister les runners installés'
+    'list-remote-runners:Lister les runners disponibles au téléchargement'
+    'check:Vérifier les dépendances système de lpm'
+    'log:Consulter le journal des actions de lpm'
+  )
+  _describe -t commands 'commande lpm' commands
+}
+
+# Slugs des jeux installés (colonne 1 de "lpm list", format "slug  Nom du jeu") -- exclut
+# déjà, via lpm list lui-même, les jeux vivant dans un giga-préfixe partagé (ceux-là ne se
+# désinstallent/empaquettent jamais individuellement, voir zgu_get_blacklisted_slugs).
+_lpm_installed_slugs() {
+  local -a slugs
+  # "lpm list" sépare slug et nom par DEUX espaces (voir zgp-game-lister.sh : echo "${slug}
+  # ${name}") -- filtre volontairement sur ce séparateur structurel plutôt que sur le texte
+  # du message "Aucun jeu installé."/"No games installed." (imprimé sur stdout quand la
+  # liste est vide) : indépendant de la langue active de lpm, contrairement à un filtre sur
+  # le contenu du message.
+  slugs=(${(f)"$(lpm list 2>/dev/null | awk -F'  ' 'NF>1{print $1}')"})
+  (( ${#slugs[@]} )) && _describe -t slugs 'jeu installé (slug)' slugs
+}
+
+# Noms des runners Wine/Proton installés ("lpm list-runner", un nom par ligne). Un nom de
+# runner réel est toujours un seul mot (basename de dossier) ; filtre NF==1 pour ignorer le
+# message "Aucun runner installé."/"No runner installed." (plusieurs mots), sans dépendre
+# de la langue active de lpm -- même logique que _lpm_installed_slugs ci-dessus.
+_lpm_installed_runners() {
+  local -a runners
+  runners=(${(f)"$(lpm list-runner 2>/dev/null | awk 'NF==1{print $1}')"})
+  (( ${#runners[@]} )) && _describe -t runners 'runner installé' runners
+}
+
+# Slugs des jeux isolables (colonne 1 de "lpm list-isolable", même format à deux espaces
+# que "lpm list") -- désormais une source fiable, contrairement au commentaire historique
+# ci-dessous sur "isolate" : list-isolable réutilise exactement la même détection de
+# store que l'isolateur (zgu_detect_isolation_store), donc jamais de slug proposé ici que
+# "lpm isolate" refuserait ensuite.
+_lpm_isolable_slugs() {
+  local -a slugs
+  slugs=(${(f)"$(lpm list-isolable 2>/dev/null | awk -F'  ' 'NF>1{print $1}')"})
+  (( ${#slugs[@]} )) && _describe -t slugs 'jeu isolable (slug)' slugs
+}
+
+# Niveaux de compression valides (0 à 22, voir bin/lpm : "-[0-9]|-1[0-9]|-2[0-2]") --
+# c'est un token collé ("-9", comme gzip), pas une option suivie d'une valeur séparée :
+# énuméré ci-dessous directement dans _lpm() comme 23 options mutuellement exclusives.
+_lpm_compression_opts=(-0 -1 -2 -3 -4 -5 -6 -7 -8 -9 -10 -11 -12 -13 -14 -15 -16 -17 -18 -19 -20 -21 -22)
+
+_lpm() {
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-v --version)'{-v,--version}'[afficher la version de lpm]' \
+    '(-h --help)'{-h,--help}'[afficher l'\''aide de lpm]' \
+    '1: :_lpm_commands' \
+    '*::arg:->args' && return 0
+
+  case "${words[1]}" in
+    install)
+      _arguments \
+        '-y[installer sans demander de confirmation]' \
+        '*:fichier .zgp:_files -g "*.zgp"'
+      ;;
+    install-runner)
+      _arguments \
+        '-y[installer sans demander de confirmation]' \
+        '*:fichier .zgr ou nom de runner distant:_files -g "*.zgr"'
+      ;;
+    uninstall)
+      _arguments \
+        '-y[désinstaller sans demander de confirmation]' \
+        '*:jeu installé:_lpm_installed_slugs'
+      ;;
+    uninstall-runner)
+      _arguments \
+        '-y[désinstaller sans demander de confirmation]' \
+        '*:runner installé:_lpm_installed_runners'
+      ;;
+    pack)
+      _arguments \
+        "(${_lpm_compression_opts[*]})"{${(j:,:)_lpm_compression_opts}}'[niveau de compression (0-22)]' \
+        '*:jeu installé:_lpm_installed_slugs'
+      ;;
+    pack-runner)
+      _arguments \
+        "(${_lpm_compression_opts[*]})"{${(j:,:)_lpm_compression_opts}}'[niveau de compression (0-22)]' \
+        '*:runner installé:_lpm_installed_runners'
+      ;;
+    isolate)
+      # Sans argument : sélection interactive via Zenity. Avec argument : complétion sur
+      # "lpm list-isolable" (voir _lpm_isolable_slugs ci-dessus).
+      _arguments '*:jeu isolable:_lpm_isolable_slugs'
+      ;;
+    info)
+      _arguments '1:jeu installé:_lpm_installed_slugs'
+      ;;
+    check)
+      _arguments '-y[répondre oui automatiquement aux invites de vérification]'
+      ;;
+    log)
+      _arguments \
+        '-n[nombre de dernières lignes à afficher]:nombre de lignes:' \
+        '--all[afficher tout le journal]' \
+        '--grep[filtrer les lignes contenant un motif]:motif:' \
+        '--clear[vider le journal (confirmation demandée)]'
+      ;;
+    list|list-isolable|list-runner|list-remote-runners)
+      _message 'aucun argument attendu'
+      ;;
+  esac
+}
+
+_lpm "$@"

@@ -16,6 +16,9 @@ INSTALL_BIN_DIR="/usr/local/bin"
 INSTALL_LIB_DIR="/usr/local/lib/lpm"
 APP_DESKTOP_DIR="/usr/share/applications"
 MIME_DIR="/usr/share/mime/packages"
+ZSH_COMPLETION_DIR="/usr/local/share/zsh/site-functions"
+BASH_COMPLETION_DIR="/usr/local/share/bash-completion/completions"
+MAN_DIR="/usr/local/share/man/man1"
 
 echo "=== Installation de lpm ==="
 
@@ -95,6 +98,36 @@ EOF
 chmod +x "${DESKTOP_FILE}"
 update-desktop-database "${APP_DESKTOP_DIR}" 2>/dev/null || true
 echo "[OK] Lanceur et association de fichiers créés."
+
+# 6. Complétion zsh (optionnelle : absence de zsh ou du dossier de complétion n'interrompt
+# pas l'installation, lpm reste utilisable sans)
+if [[ -f "completions/_lpm" ]]; then
+  mkdir -p "${ZSH_COMPLETION_DIR}"
+  cp completions/_lpm "${ZSH_COMPLETION_DIR}/_lpm"
+  echo "[OK] Complétion zsh installée dans ${ZSH_COMPLETION_DIR}"
+  echo "     (si elle n'apparaît pas : vérifier que ce dossier est dans votre \$fpath,"
+  echo "     puis 'rm -f ~/.zcompdump && compinit' dans un nouveau terminal)"
+fi
+
+# 7. Complétion bash (optionnelle : absence du dossier n'interrompt pas l'installation,
+# lpm reste utilisable sans -- même logique que la complétion zsh ci-dessus)
+if [[ -f "completions/lpm.bash" ]]; then
+  mkdir -p "${BASH_COMPLETION_DIR}"
+  cp completions/lpm.bash "${BASH_COMPLETION_DIR}/lpm"
+  echo "[OK] Complétion bash installée dans ${BASH_COMPLETION_DIR}"
+  echo "     (si elle n'apparaît pas : ouvrir un nouveau terminal, ou vérifier que le"
+  echo "     paquet 'bash-completion' est installé sur ce système)"
+fi
+
+# 8. Page man (optionnelle : absence de "mandb" n'interrompt pas l'installation -- même
+# logique best-effort que update-desktop-database/update-mime-database ci-dessus ; "lpm
+# --help" reste fonctionnel dans tous les cas via son repli intégré, voir bin/lpm)
+if [[ -f "man/lpm.1" ]]; then
+  mkdir -p "${MAN_DIR}"
+  cp man/lpm.1 "${MAN_DIR}/lpm.1"
+  mandb 2>/dev/null || true
+  echo "[OK] Page man installée dans ${MAN_DIR} ('lpm --help' l'utilisera désormais)"
+fi
 
 echo "========================================"
 echo " Installation terminée avec succès !"

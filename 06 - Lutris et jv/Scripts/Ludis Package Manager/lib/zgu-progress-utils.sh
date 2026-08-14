@@ -148,6 +148,52 @@ zgu_gui_compress_zstd() {
   return 0
 }
 
+# zgu_gui_copy_tree <src_dir> <dst_dir> <zenity_title> <zenity_text>
+#
+# Copie récursivement <src_dir> vers <dst_dir> (dst_dir est le dossier de destination final,
+# pas son parent) avec une barre de progression Zenity réelle, même mécanisme pv que
+# l'extraction/compression ci-dessus : tar écrit le flux d'entrée, pv en compte les octets
+# déjà lus, tar le réécrit tel quel en sortie (pas de (dé)compression, juste une copie qui
+# préserve liens symboliques et permissions comme "cp -a"). Utilisée par lpm isolate pour
+# dupliquer le socle (launcher) et le dossier propre au jeu d'un giga-préfixe partagé vers un
+# nouveau wineprefix indépendant, sans balayage disque répété.
+#
+# Retourne 0 (succès), 1 (échec) ou 2 (annulé par l'utilisateur -- dst_dir est laissé tel
+# quel dans les deux cas, à l'appelant de nettoyer s'il le souhaite).
+zgu_gui_copy_tree() {
+  local src_dir="$1" dst_dir="$2" zen_title="$3" zen_text="$4"
+
+  [[ -d "${src_dir}" ]] || return 1
+  mkdir -p "${dst_dir}" || return 1
+
+  local source_size
+  source_size=$(du -sb "${src_dir}" 2>/dev/null | cut -f1)
+  [[ -z "${source_size}" ]] && source_size=0
+
+  local tar_exit_file
+  tar_exit_file=$(mktemp)
+
+  (
+    tar -C "${src_dir}" -cf - . | pv -n -s "${source_size}" | tar -C "${dst_dir}" -xf -
+    echo "${PIPESTATUS[0]}" > "${tar_exit_file}"
+  ) 2>&1 | zenity --progress --title="${zen_title}" --text="${zen_text}" --percentage=0 --auto-close --width=500 2>/dev/null
+
+  local zenity_status=$?
+
+  if [[ "${zenity_status}" -ne 0 ]]; then
+    rm -f "${tar_exit_file}"
+    return 2
+  fi
+
+  local tar_exit
+  tar_exit=$(cat "${tar_exit_file}" 2>/dev/null)
+  rm -f "${tar_exit_file}"
+  [[ -z "${tar_exit}" ]] && tar_exit=1
+
+  [[ "${tar_exit}" -eq 0 ]] && return 0
+  return 1
+}
+
 # zgu_gui_download <url> <dest> <expected_size> <zenity_title> <zenity_text>
 #
 # Télécharge <url> vers <dest> avec une barre de progression Zenity réelle pilotée par pv,

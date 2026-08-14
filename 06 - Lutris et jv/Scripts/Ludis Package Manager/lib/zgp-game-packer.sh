@@ -15,6 +15,8 @@ source "${script_dir}/zgl-lang-loader.sh"
 source "${script_dir}/zgu-lutris-utils.sh"
 # shellcheck source=./zgu-progress-utils.sh
 source "${script_dir}/zgu-progress-utils.sh"
+# shellcheck source=./zgu-log-utils.sh
+source "${script_dir}/zgu-log-utils.sh"
 
 OUTPUT_DIR="${HOME}"
 
@@ -465,9 +467,11 @@ except Exception as e:
 
     if [[ "${tar_exit}" -ne 0 ]] || [[ ! -s "${archive_path}" ]]; then
       t pack_game.compression_failed_cli "${ARCHIVE_NAME}" >&2
+      zgu_log "pack" "ERREUR" "slug=${game_slug} nom=${game_real_name} raison=compression_echouee code=${tar_exit}"
       rm -f "${archive_path}"
       exit 1
     fi
+    zgu_log "pack" "OK" "slug=${game_slug} nom=${game_real_name} archive=${archive_path}"
 
     # Le .zgp peut embarquer des données sensibles (registre Wine : clés de licence,
     # chemins...) : restreint aux seuls droits du propriétaire pour éviter qu'un autre
@@ -486,11 +490,14 @@ except Exception as e:
 
     if [[ "${compress_status}" -eq 2 ]]; then
       zenity --info --title="$(t pack_game.cancel_title)" --text="$(t pack_game.cancel_text "${ARCHIVE_NAME}")" 2>/dev/null
+      zgu_log "pack" "INFO" "slug=${game_slug} nom=${game_real_name} raison=annule_par_utilisateur"
       exit 0
     elif [[ "${compress_status}" -ne 0 ]]; then
       zenity --error --text="$(t pack_game.compression_error "${ARCHIVE_NAME}")" 2>/dev/null
+      zgu_log "pack" "ERREUR" "slug=${game_slug} nom=${game_real_name} raison=compression_echouee code=${compress_status}"
       exit 1
     fi
+    zgu_log "pack" "OK" "slug=${game_slug} nom=${game_real_name} archive=${archive_path}"
   fi
 
   # Nettoyage des fichiers temporaires embarqués avant la fin

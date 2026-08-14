@@ -41,7 +41,10 @@ print_help() {
     printf "  %-42s %s\n" "lpm install [-y] <fichiers.zgp...>" "$(t help.games_install)"
     printf "  %-42s %s\n" "lpm uninstall [-y] <slugs...>" "$(t help.games_uninstall)"
     printf "  %-42s %s\n" "lpm pack [-niveau] <dossiers...>" "$(t help.games_pack)"
+    printf "  %-42s %s\n" "lpm isolate [slug]" "$(t help.games_isolate)"
     printf "  %-42s %s\n" "lpm list" "$(t help.games_list)"
+    printf "  %-42s %s\n" "lpm list-isolable" "$(t help.games_list_isolable)"
+    printf "  %-42s %s\n" "lpm info <slug>" "$(t help.games_info)"
     echo ""
     t help.runners_header
     printf "  %-52s %s\n" "lpm install-runner [-y] <fichiers.zgr|noms...>" "$(t help.runners_install)"
@@ -57,6 +60,12 @@ print_help() {
     printf "  %-36s %s\n" "" "$(t help.deps_check_cont1)"
     printf "  %-36s %s\n" "" "$(t help.deps_check_cont2)"
     echo ""
+    t help.log_header
+    printf "  %-36s %s\n" "lpm log [-n N]" "$(t help.log_show)"
+    printf "  %-36s %s\n" "lpm log --all" "$(t help.log_all)"
+    printf "  %-36s %s\n" "lpm log --grep <motif>" "$(t help.log_grep)"
+    printf "  %-36s %s\n" "lpm log --clear" "$(t help.log_clear)"
+    echo ""
     t help.options_header
     printf "  %-36s %s\n" "-y" "$(t help.opt_y)"
     printf "  %-36s %s\n" "-niveau (0 à 22)" "$(t help.opt_level)"
@@ -65,6 +74,13 @@ print_help() {
 }
 
 if [[ "$1" = "--help" ]] || [[ "$1" = "-h" ]]; then
+    # Si la page man est installée (voir install.sh), elle fait référence : plus complète
+    # et déjà au format attendu par l'utilisateur (man lpm, less, recherche "/"...). Repli
+    # sur le texte intégré ci-dessus si lpm tourne depuis les sources (non installé) ou sur
+    # un système sans "man" (environnement minimal) -- --help doit toujours fonctionner.
+    if command -v man >/dev/null 2>&1 && man -w lpm >/dev/null 2>&1; then
+        exec man lpm
+    fi
     print_help
     exit 0
 fi
@@ -131,6 +147,9 @@ if [[ $# -gt 0 ]]; then
         pack)
             exec bash "${LIB_DIR}/zgp-game-packer.sh" "${compression_level}" "$@"
             ;;
+        isolate)
+            exec bash "${LIB_DIR}/zgp-game-isolator.sh" "$@"
+            ;;
         pack-runner)
             exec bash "${LIB_DIR}/zgr-runner-packer.sh" "${compression_level}" "$@"
             ;;
@@ -139,6 +158,15 @@ if [[ $# -gt 0 ]]; then
             ;;
         list)
             exec bash "${LIB_DIR}/zgp-game-lister.sh"
+            ;;
+        list-isolable)
+            exec bash "${LIB_DIR}/zgp-isolable-lister.sh"
+            ;;
+        info)
+            exec bash "${LIB_DIR}/zgp-game-info.sh" "$@"
+            ;;
+        log)
+            exec bash "${LIB_DIR}/zgp-log-viewer.sh" "$@"
             ;;
         list-runner)
             exec bash "${LIB_DIR}/zgr-runner-lister.sh"
@@ -158,6 +186,7 @@ fi
 opt_install_game="$(t menu.opt_install_game)"
 opt_pack_game="$(t menu.opt_pack_game)"
 opt_uninstall_game="$(t menu.opt_uninstall_game)"
+opt_isolate="$(t menu.opt_isolate)"
 opt_install_runner="$(t menu.opt_install_runner)"
 opt_pack_runner="$(t menu.opt_pack_runner)"
 opt_uninstall_runner="$(t menu.opt_uninstall_runner)"
@@ -171,6 +200,7 @@ while true; do
         FALSE "${opt_install_game}" \
         FALSE "${opt_pack_game}" \
         FALSE "${opt_uninstall_game}" \
+        FALSE "${opt_isolate}" \
         FALSE "${opt_install_runner}" \
         FALSE "${opt_pack_runner}" \
         FALSE "${opt_uninstall_runner}" \
@@ -188,6 +218,9 @@ while true; do
             ;;
         "${opt_uninstall_game}")
             bash "${LIB_DIR}/zgp-game-uninstaller.sh"
+            ;;
+        "${opt_isolate}")
+            bash "${LIB_DIR}/zgp-game-isolator.sh"
             ;;
         "${opt_install_runner}")
             bash "${LIB_DIR}/zgr-runner-installer.sh"

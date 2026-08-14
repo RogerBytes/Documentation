@@ -9,6 +9,8 @@ source "${script_dir}/zgu-lutris-utils.sh"
 source "${script_dir}/zgu-desktop-utils.sh"
 # shellcheck source=./zgu-progress-utils.sh
 source "${script_dir}/zgu-progress-utils.sh"
+# shellcheck source=./zgu-log-utils.sh
+source "${script_dir}/zgu-log-utils.sh"
 
 # --- Analyse des arguments transmis par bin/lpm ---
 # $1 = mode ("click" = double-clic depuis le gestionnaire de fichiers, "cli" = commande
@@ -271,6 +273,7 @@ for name in "${games_to_install[@]}"; do
     else
       zenity --error --title="$(t install_game.corrupt_archive_title)" --text="${err_msg}" 2>/dev/null
     fi
+    zgu_log "install" "ERREUR" "fichier=${name} raison=archive_corrompue code=${tar_exit}"
     rm -rf "${temp_extract_dir}"
     continue
   fi
@@ -283,6 +286,7 @@ for name in "${games_to_install[@]}"; do
   slug=$(basename "$(find "${temp_extract_dir}" -mindepth 1 -maxdepth 1 | head -n 1)")
   if [[ -z "${slug}" ]] || [[ ! -d "${temp_extract_dir}/${slug}" ]]; then
     t install_game.slug_detect_failed "${name}" >&2
+    zgu_log "install" "ERREUR" "fichier=${name} raison=slug_introuvable"
     rm -rf "${temp_extract_dir}"
     continue
   fi
@@ -295,6 +299,7 @@ for name in "${games_to_install[@]}"; do
   # enfant direct de $temp_extract_dir avant de continuer.
   if [[ -L "${temp_extract_dir}/${slug}" ]]; then
     t install_game.slug_detect_failed "${name}" >&2
+    zgu_log "install" "ERREUR" "fichier=${name} raison=slug_lien_symbolique"
     rm -rf "${temp_extract_dir}"
     continue
   fi
@@ -303,6 +308,7 @@ for name in "${games_to_install[@]}"; do
   case "${slug}" in
     */*|.|..)
       t install_game.slug_detect_failed "${name}" >&2
+      zgu_log "install" "ERREUR" "fichier=${name} raison=slug_traversee_chemin"
       rm -rf "${temp_extract_dir}"
       continue
       ;;
@@ -320,6 +326,7 @@ for name in "${games_to_install[@]}"; do
   case "${slug}" in
     *[$'\n\r\t']*)
       t install_game.slug_detect_failed "${name}" >&2
+      zgu_log "install" "ERREUR" "fichier=${name} raison=slug_caractere_controle"
       rm -rf "${temp_extract_dir}"
       continue
       ;;
@@ -328,6 +335,7 @@ for name in "${games_to_install[@]}"; do
   real_temp_dir=$(realpath -e "${temp_extract_dir}" 2>/dev/null)
   if [[ -z "${real_slug_dir}" ]] || [[ -z "${real_temp_dir}" ]] || [[ "${real_slug_dir%/*}" != "${real_temp_dir}" ]]; then
     t install_game.slug_detect_failed "${name}" >&2
+    zgu_log "install" "ERREUR" "fichier=${name} raison=slug_chemin_reel_invalide"
     rm -rf "${temp_extract_dir}"
     continue
   fi
@@ -342,6 +350,7 @@ for name in "${games_to_install[@]}"; do
     else
       zenity --error --title="$(t install_game.already_installed_title)" --text="${err_msg}" 2>/dev/null
     fi
+    zgu_log "install" "ERREUR" "fichier=${name} slug=${slug} raison=deja_installe"
     rm -rf "${temp_extract_dir}"
     continue
   fi
@@ -354,6 +363,7 @@ for name in "${games_to_install[@]}"; do
     else
       zenity --error --title="$(t install_game.move_failed_title)" --text="${err_msg}" 2>/dev/null
     fi
+    zgu_log "install" "ERREUR" "fichier=${name} slug=${slug} raison=deplacement_echoue"
     rm -rf "${temp_extract_dir}"
     continue
   fi
@@ -602,6 +612,7 @@ Categories=Game"
       fi
     fi
 
+    zgu_log "install" "OK" "slug=${slug} nom=${game_real_name}"
     t install_game.finalizing
   }
 

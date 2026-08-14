@@ -14,6 +14,8 @@ source "${script_dir}/zgl-lang-loader.sh"
 source "${script_dir}/zgu-lutris-utils.sh"
 # shellcheck source=./zgu-desktop-utils.sh
 source "${script_dir}/zgu-desktop-utils.sh"
+# shellcheck source=./zgu-log-utils.sh
+source "${script_dir}/zgu-log-utils.sh"
 
 # Configuration des chemins Lutris
 lutris_flatpak_db="${HOME}/.var/app/net.lutris.Lutris/data/lutris/pga.db"
@@ -289,6 +291,7 @@ if [[ ${#cli_games[@]} -gt 0 ]]; then
     case "${game_slug}" in
       */*|.|..|*[$'\n\r\t']*)
         t uninstall_game.unsafe_prefix_skip "${game_name}" "${game_slug}" >&2
+        zgu_log "uninstall" "ERREUR" "slug=${game_slug} nom=${game_name} raison=slug_non_sur"
         continue
         ;;
     esac
@@ -303,6 +306,7 @@ if [[ ${#cli_games[@]} -gt 0 ]]; then
     # A. Suppression du préfixe physique sur le disque
     if ! safe_delete_prefix_dir "${prefix_dir}"; then
       t uninstall_game.unsafe_prefix_skip "${game_name}" "${prefix_dir}" >&2
+      zgu_log "uninstall" "ERREUR" "slug=${game_slug} nom=${game_name} raison=prefixe_dangereux dir=${prefix_dir}"
     fi
 
     # B. Suppression de la configuration YML Lutris
@@ -317,6 +321,7 @@ if [[ ${#cli_games[@]} -gt 0 ]]; then
     rm -f "${desktop_dir}/${game_slug}.desktop"
     rm -f "${desktop_dir}/${game_name} $(t install_game.bonus_folder_suffix)"
     rm -f "${HOME}/.local/share/applications/net.lutris.${game_slug}.desktop"
+    zgu_log "uninstall" "OK" "slug=${game_slug} nom=${game_name}"
   done
 
   update-desktop-database "${HOME}/.local/share/applications" 2>/dev/null || true
@@ -340,6 +345,7 @@ else
       case "${game_slug}" in
         */*|.|..|*[$'\n\r\t']*)
           t uninstall_game.unsafe_prefix_skip "${game_name}" "${game_slug}" >&2
+          zgu_log "uninstall" "ERREUR" "slug=${game_slug} nom=${game_name} raison=slug_non_sur"
           continue
           ;;
       esac
@@ -350,6 +356,7 @@ else
 
       if ! safe_delete_prefix_dir "${prefix_dir}"; then
         t uninstall_game.unsafe_prefix_skip "${game_name}" "${prefix_dir}" >&2
+        zgu_log "uninstall" "ERREUR" "slug=${game_slug} nom=${game_name} raison=prefixe_dangereux dir=${prefix_dir}"
       fi
       rm -f "${lutris_config_dir}/${game_slug}-"*.yml
       sqlite3 "${lutris_db}" "DELETE FROM games WHERE slug='${safe_game_slug}';"
@@ -359,7 +366,8 @@ else
       rm -f "${desktop_dir}/${game_slug}.desktop"
       rm -f "${desktop_dir}/${game_name} $(t install_game.bonus_folder_suffix)"
       rm -f "${HOME}/.local/share/applications/net.lutris.${game_slug}.desktop"
-      
+      zgu_log "uninstall" "OK" "slug=${game_slug} nom=${game_name}"
+
       sleep 0.3
     done
 

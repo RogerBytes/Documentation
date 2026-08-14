@@ -121,3 +121,42 @@ zgu_get_blacklisted_slugs() {
     [[ "${is_blacklisted}" -eq 1 ]] && echo "${slug}"
   done <<< "${rows}"
 }
+
+# --- Détection du store (Epic/EA/Ubisoft/Battle.net) pour un giga-préfixe donné ---
+#
+# Partagée par zgp-game-isolator.sh ("lpm isolate") et zgp-isolable-lister.sh
+# ("lpm list-isolable") : une seule définition garantit que la liste affichée par
+# list-isolable et le store effectivement ciblé par isolate ne divergent jamais.
+#
+# Distinct de ZGU_STORE_KEYWORDS ci-dessus, qui inclut aussi "Steam" pour le filet de
+# sécurité de la blacklist générale : Steam est explicitement hors sujet ici (les jeux
+# Steam ne sont pas gérés par lpm). Seuls les 4 stores documentés sont reconnus ; un
+# préfixe partagé qui n'en fait pas partie (store inconnu, ou blacklisté uniquement par
+# détection générique de "directory" dupliqué) retourne 1, sans rien afficher : ni isolate
+# ni list-isolable ne doivent deviner un store qu'ils ne savent pas traiter.
+zgu_detect_isolation_store() {
+  local lutris_db="$1" giga_dir="$2" safe_dir rows name
+  safe_dir="${giga_dir//\'/\'\'}"
+  rows=$(sqlite3 "${lutris_db}" "SELECT name FROM games WHERE runner='wine' AND directory='${safe_dir}';" 2>/dev/null)
+  while IFS= read -r name; do
+    case "${name}" in
+      *"Epic Games Store"*) echo "egs"; return 0 ;;
+      *"EA App"*|*"EA Desktop"*) echo "ea"; return 0 ;;
+      *"Ubisoft Connect"*) echo "ubisoft"; return 0 ;;
+      *"Battle.net"*) echo "battlenet"; return 0 ;;
+    esac
+  done <<< "${rows}"
+  return 1
+}
+
+# Convertit un code de store interne (retourné par zgu_detect_isolation_store) en son nom
+# d'affichage complet, pour l'humain (list-isolable, messages isolate).
+zgu_store_display_name() {
+  case "$1" in
+    egs) echo "Epic Games Store" ;;
+    ea) echo "EA App / EA Desktop" ;;
+    ubisoft) echo "Ubisoft Connect" ;;
+    battlenet) echo "Battle.net" ;;
+    *) echo "$1" ;;
+  esac
+}

@@ -12,6 +12,9 @@ INSTALL_LIB_DIR="/usr/local/lib/lpm"
 APP_DESKTOP_DIR="/usr/share/applications"
 DESKTOP_FILE="${APP_DESKTOP_DIR}/lpm.desktop"
 MIME_FILE="/usr/share/mime/packages/lpm.xml"
+ZSH_COMPLETION_FILE="/usr/local/share/zsh/site-functions/_lpm"
+BASH_COMPLETION_FILE="/usr/local/share/bash-completion/completions/lpm"
+MAN_FILE="/usr/local/share/man/man1/lpm.1"
 
 echo "=== Désinstallation de lpm ==="
 
@@ -47,6 +50,31 @@ if [[ -f "${DESKTOP_FILE}" ]]; then
   echo "[OK] Lanceur du menu des applications supprimé."
 else
   echo "[Info] Aucun lanceur trouvé dans ${APP_DESKTOP_DIR}"
+fi
+
+# 5. Suppression de la complétion zsh
+if [[ -f "${ZSH_COMPLETION_FILE}" ]]; then
+  rm -f "${ZSH_COMPLETION_FILE}"
+  echo "[OK] Complétion zsh supprimée de ${ZSH_COMPLETION_FILE}"
+else
+  echo "[Info] Aucune complétion zsh trouvée à ${ZSH_COMPLETION_FILE}"
+fi
+
+# 6. Suppression de la complétion bash
+if [[ -f "${BASH_COMPLETION_FILE}" ]]; then
+  rm -f "${BASH_COMPLETION_FILE}"
+  echo "[OK] Complétion bash supprimée de ${BASH_COMPLETION_FILE}"
+else
+  echo "[Info] Aucune complétion bash trouvée à ${BASH_COMPLETION_FILE}"
+fi
+
+# 7. Suppression de la page man
+if [[ -f "${MAN_FILE}" ]]; then
+  rm -f "${MAN_FILE}"
+  mandb 2>/dev/null || true
+  echo "[OK] Page man supprimée de ${MAN_FILE}"
+else
+  echo "[Info] Aucune page man trouvée à ${MAN_FILE}"
 fi
 
 echo "========================================"
