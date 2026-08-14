@@ -51,12 +51,21 @@ Désinstalle un ou plusieurs jeux installés (préfixe Wine, entrée Lutris, rac
 Empaquette un ou plusieurs jeux installés en archives
 .IR .zgp .
 .TP
-.BI "isolate [" slug ]
-Sépare un jeu vivant dans un giga-préfixe partagé (Epic Games Store, EA App/EA Desktop,
-Ubisoft Connect, Battle.net) en un préfixe Wine indépendant. Sans argument : sélection
-interactive Zenity parmi les jeux isolables (voir aussi
+.BI "isolate [" store ]
+Isole entièrement un store vivant dans un giga-préfixe partagé (Epic Games Store, EA App/EA
+Desktop, Ubisoft Connect, Battle.net) : chacun des jeux actuellement dans ce giga-préfixe
+reçoit son propre préfixe Wine indépendant en une seule passe (jamais un seul jeu isolé en
+laissant les autres derrière).
+.I store
+peut être un code interne
+.RI ( egs ", " ea ", " ubisoft ", " battlenet ),
+un alias courant (ex.
+.IR epic ", " blizzard ),
+ou le slug d'un jeu actuellement détecté dans ce giga-préfixe (sert uniquement à retrouver le
+store visé -- tous ses jeux sont isolés, pas seulement celui nommé). Sans argument : sélection
+interactive Zenity du store à isoler parmi ceux détectés (voir aussi
 .B list-isolable
-ci-dessous pour la version non-interactive de cette liste).
+ci-dessous pour la version non-interactive de cette liste, jeu par jeu avec store associé).
 .TP
 .B list
 Liste les jeux installés (slug puis nom), un par ligne.

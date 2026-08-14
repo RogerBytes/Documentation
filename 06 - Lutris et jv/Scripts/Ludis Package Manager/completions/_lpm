@@ -25,7 +25,7 @@ _lpm_commands() {
     'uninstall-runner:Désinstaller un ou plusieurs runners installés'
     'pack:Empaqueter un ou plusieurs jeux installés en .zgp'
     'pack-runner:Empaqueter un ou plusieurs runners installés en .zgr'
-    'isolate:Isoler un jeu d'\''un giga-préfixe partagé (Epic/EA/Ubisoft/Battle.net)'
+    'isolate:Isoler tout un store d'\''un giga-préfixe partagé (Epic/EA/Ubisoft/Battle.net)'
     'list:Lister les jeux installés'
     'list-isolable:Lister les jeux isolables (store à viser)'
     'info:Afficher les métadonnées d'\''un jeu installé'
@@ -61,15 +61,18 @@ _lpm_installed_runners() {
   (( ${#runners[@]} )) && _describe -t runners 'runner installé' runners
 }
 
-# Slugs des jeux isolables (colonne 1 de "lpm list-isolable", même format à deux espaces
-# que "lpm list") -- désormais une source fiable, contrairement au commentaire historique
-# ci-dessous sur "isolate" : list-isolable réutilise exactement la même détection de
-# store que l'isolateur (zgu_detect_isolation_store), donc jamais de slug proposé ici que
+# Arguments acceptés par "lpm isolate" : les 4 codes de store internes, ainsi que les slugs
+# des jeux isolables (colonne 1 de "lpm list-isolable", même format à deux espaces que
+# "lpm list") -- un slug ne sert qu'à retrouver son store, "isolate" isole ensuite tout ce
+# store, pas seulement le jeu nommé. list-isolable réutilise exactement la même détection de
+# store que l'isolateur (zgu_detect_isolation_store), donc jamais un argument proposé ici que
 # "lpm isolate" refuserait ensuite.
 _lpm_isolable_slugs() {
-  local -a slugs
+  local -a stores slugs
+  stores=('egs' 'ea' 'ubisoft' 'battlenet')
   slugs=(${(f)"$(lpm list-isolable 2>/dev/null | awk -F'  ' 'NF>1{print $1}')"})
-  (( ${#slugs[@]} )) && _describe -t slugs 'jeu isolable (slug)' slugs
+  _describe -t stores 'store' stores
+  (( ${#slugs[@]} )) && _describe -t slugs 'jeu isolable (slug, retrouve son store)' slugs
 }
 
 # Niveaux de compression valides (0 à 22, voir bin/lpm : "-[0-9]|-1[0-9]|-2[0-2]") --

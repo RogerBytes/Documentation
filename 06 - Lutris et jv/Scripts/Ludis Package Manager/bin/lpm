@@ -41,7 +41,7 @@ print_help() {
     printf "  %-42s %s\n" "lpm install [-y] <fichiers.zgp...>" "$(t help.games_install)"
     printf "  %-42s %s\n" "lpm uninstall [-y] <slugs...>" "$(t help.games_uninstall)"
     printf "  %-42s %s\n" "lpm pack [-niveau] <dossiers...>" "$(t help.games_pack)"
-    printf "  %-42s %s\n" "lpm isolate [slug]" "$(t help.games_isolate)"
+    printf "  %-42s %s\n" "lpm isolate [store]" "$(t help.games_isolate)"
     printf "  %-42s %s\n" "lpm list" "$(t help.games_list)"
     printf "  %-42s %s\n" "lpm list-isolable" "$(t help.games_list_isolable)"
     printf "  %-42s %s\n" "lpm info <slug>" "$(t help.games_info)"

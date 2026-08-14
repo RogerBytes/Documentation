@@ -80,11 +80,12 @@ _lpm() {
       COMPREPLY=($(compgen -W "${_lpm_compression_opts} $(_lpm_installed_runners)" -- "${cur}"))
       ;;
     isolate)
-      # Sans argument : sélection interactive via Zenity (liste les jeux détectés dans
-      # un giga-préfixe partagé) -- pas de complétion dynamique fiable ici sans dupliquer
-      # la détection de zgu_get_blacklisted_slugs ; on peut en revanche s'appuyer sur
-      # "lpm list-isolable" (colonne 1) pour les slugs déjà connus comme isolables.
-      COMPREPLY=($(compgen -W "$(lpm list-isolable 2>/dev/null | awk -F'  ' 'NF>1{print $1}')" -- "${cur}"))
+      # "isolate" opère par STORE, pas par jeu : on propose les codes de store connus, ainsi
+      # que les slugs de jeux actuellement isolables (chacun résout vers son store via
+      # zgp_resolve_store_arg) -- pas de complétion dynamique fiable au-delà sans dupliquer
+      # la détection de zgu_get_blacklisted_slugs ; "lpm list-isolable" (colonne 1) donne les
+      # slugs déjà connus comme isolables.
+      COMPREPLY=($(compgen -W "egs ea ubisoft battlenet $(lpm list-isolable 2>/dev/null | awk -F'  ' 'NF>1{print $1}')" -- "${cur}"))
       ;;
     info)
       # Un seul slug attendu : pas de complétion au-delà du premier argument.

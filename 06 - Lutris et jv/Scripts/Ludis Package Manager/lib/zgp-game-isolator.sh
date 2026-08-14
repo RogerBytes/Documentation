@@ -2,17 +2,23 @@
 
 # --- lpm isolate ---
 #
-# Sépare un jeu vivant dans un giga-préfixe partagé (Epic Games Store, EA App/EA Desktop,
-# Ubisoft Connect, Battle.net) en un wineprefix indépendant, sans dupliquer les autres jeux
-# du giga-préfixe. Voir docs/dernière feature.md pour le contexte complet et le détail
-# empirique des dossiers "socle" (launcher, partagé) vs "dossier du jeu" (propre au jeu) par
-# store -- ce fichier applique les décisions déjà tranchées dans ce document, il ne les
-# rediscute pas.
+# Isole TOUT un store d'un coup : sépare chaque jeu vivant dans un giga-préfixe partagé
+# (Epic Games Store, EA App/EA Desktop, Ubisoft Connect, Battle.net) en son propre wineprefix
+# indépendant -- un jeu = un préfixe, pour chacun des jeux du store visé, jamais un seul jeu
+# isolé en laissant les autres derrière. Voir docs/dernière feature.md pour le contexte complet
+# et le détail empirique des dossiers "socle" (launcher, partagé) vs "dossier du jeu" (propre
+# au jeu) par store -- ce fichier applique les décisions déjà tranchées dans ce document, il ne
+# les rediscute pas.
 #
 # --- Récupération des arguments du routeur lpm ---
-# $1 = slug du jeu à isoler (optionnel ; vide => mode interactif Zenity qui liste les jeux
-#      actuellement détectés comme partageant un giga-préfixe, voir zgu_get_blacklisted_slugs)
-cli_slug="${1:-}"
+# $1 = store à isoler entièrement (optionnel) : code interne (egs/ea/ubisoft/battlenet), alias
+#      courant (ex. "epic", "blizzard"), ou slug d'un jeu actuellement détecté dans ce
+#      giga-préfixe (juste pour retrouver le store à viser, tous les jeux de ce store seront
+#      isolés, pas seulement celui nommé). Vide => mode interactif Zenity qui liste les STORES
+#      actuellement détectés comme partagés (voir zgu_get_blacklisted_slugs), pas les jeux un
+#      par un.
+cli_store_arg="${1:-}"
+cli_slug="${cli_store_arg}"
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=./zgl-lang-loader.sh
@@ -313,46 +319,113 @@ done < <(
 )
 
 # ---------------------------------------------------------------------------------------------
-# --- Sélection du/des jeu(x) à isoler ---
-slugs_to_isolate=()
+# --- Regroupement des jeux blacklistés par store détecté ---
+# "lpm isolate" opère par STORE, jamais par jeu isolé : tous les jeux actuellement vivants dans
+# le giga-préfixe d'un même store sont isolés en une seule passe, chacun recevant son propre
+# préfixe indépendant (s'il y a 200 jeux dans le store visé, 200 préfixes sont créés). Un
+# store peut en théorie être réparti sur plusieurs giga-préfixes (dossier "directory" distinct
+# en base) -- on les fusionne tous sous le même code de store ici, pour que "isoler le store X"
+# couvre bien tous les jeux X, quel que soit le dossier où ils vivent.
+declare -A store_slugs      # code de store -> slugs concernés, séparés par des espaces
+declare -A dir_store_cache  # giga_dir résolu -> code de store (mémoïsation par dossier)
 
-if [[ -n "${cli_slug}" ]]; then
-  if [[ -z "${bl_name_by_slug[${cli_slug}]:-}" ]]; then
-    t isolate.slug_not_blacklisted "${cli_slug}" >&2
+for b_slug in "${sorted_bl_slugs[@]}"; do
+  b_dir="${bl_dir_by_slug[${b_slug}]}"
+  real_b_dir=$(realpath -e "${b_dir}" 2>/dev/null)
+  [[ -z "${real_b_dir}" ]] && continue
+
+  if [[ -z "${dir_store_cache[${real_b_dir}]+x}" ]]; then
+    dir_store_cache["${real_b_dir}"]=$(zgu_detect_isolation_store "${lutris_db}" "${real_b_dir}")
+  fi
+  b_store="${dir_store_cache[${real_b_dir}]}"
+  [[ -z "${b_store}" ]] && continue
+
+  store_slugs["${b_store}"]+="${b_slug} "
+done
+
+# Traduit un argument utilisateur (code de store, alias courant, ou slug d'un jeu isolable) en
+# code de store interne (egs/ea/ubisoft/battlenet). N'affiche rien, retourne 1 si rien ne
+# correspond -- laisse l'appelant décider du message d'erreur.
+zgp_resolve_store_arg() {
+  local raw="$1" arg
+  arg="${raw,,}"
+  case "${arg}" in
+    egs|epic|epicgames|epic-games|"epic games"|"epic games store")
+      echo "egs"; return 0 ;;
+    ea|eaapp|ea-app|eadesktop|ea-desktop|"ea app"|"ea desktop")
+      echo "ea"; return 0 ;;
+    ubisoft|uplay|ubisoftconnect|ubisoft-connect|"ubisoft connect")
+      echo "ubisoft"; return 0 ;;
+    battlenet|battle.net|"battle net"|blizzard)
+      echo "battlenet"; return 0 ;;
+  esac
+
+  # Sinon : peut-être le slug d'un jeu actuellement isolable -- on réutilise le store déjà
+  # résolu ci-dessus pour son dossier plutôt que de le redétecter une seconde fois.
+  local slug_dir real_slug_dir slug_store
+  slug_dir="${bl_dir_by_slug[${raw}]:-}"
+  [[ -z "${slug_dir}" ]] && return 1
+  real_slug_dir=$(realpath -e "${slug_dir}" 2>/dev/null)
+  [[ -z "${real_slug_dir}" ]] && return 1
+  slug_store="${dir_store_cache[${real_slug_dir}]:-}"
+  [[ -z "${slug_store}" ]] && return 1
+  echo "${slug_store}"
+}
+
+# ---------------------------------------------------------------------------------------------
+# --- Sélection du store à isoler entièrement ---
+target_store=""
+
+if [[ -n "${cli_store_arg}" ]]; then
+  target_store=$(zgp_resolve_store_arg "${cli_store_arg}")
+  if [[ -z "${target_store}" ]] || [[ -z "${store_slugs[${target_store}]:-}" ]]; then
+    t isolate.store_arg_invalid "${cli_store_arg}" >&2
     exit 1
   fi
-  slugs_to_isolate=("${cli_slug}")
 else
-  if [[ ${#sorted_bl_slugs[@]} -eq 0 ]]; then
+  if [[ ${#store_slugs[@]} -eq 0 ]]; then
     zenity --info --text="$(t isolate.none_found)" 2>/dev/null
     exit 0
   fi
 
+  sorted_stores=($(printf '%s\n' "${!store_slugs[@]}" | sort))
   zenity_args=()
-  for b_slug in "${sorted_bl_slugs[@]}"; do
-    zenity_args+=("FALSE" "${b_slug}" "${bl_name_by_slug[${b_slug}]}")
+  for s_code in "${sorted_stores[@]}"; do
+    s_count=$(wc -w <<< "${store_slugs[${s_code}]}")
+    zenity_args+=("FALSE" "$(zgu_store_display_name "${s_code}")" "${s_count}")
   done
 
-  # Colonne "print" = slug (2e colonne) : lue directement en sortie, pas besoin d'un
-  # second aller-retour pour retrouver le nom -- inverse du pattern de
-  # zgp-game-uninstaller.sh (qui affiche le nom d'abord) car "isolate" a besoin du slug,
-  # jamais d'un nom potentiellement dupliqué, pour ses lookups plus bas.
-  selected=$(zenity --list --checklist \
+  # Sélection UNIQUE (radiolist) : on isole un store entier à la fois, jamais une sélection de
+  # jeux au cas par cas -- colonne "print" = nom affiché (2e colonne), retraduit vers le code
+  # interne juste après via zgu_store_display_name.
+  selected_label=$(zenity --list --radiolist \
     --title="$(t isolate.select_title)" \
     --text="$(t isolate.select_text)" \
-    --column="$(t isolate.select_col_isolate)" --column="$(t isolate.select_col_slug)" --column="$(t isolate.select_col_game)" \
-    --separator=$'\x1f' \
+    --column="$(t isolate.select_col_isolate)" --column="$(t isolate.select_col_store)" --column="$(t isolate.select_col_count)" \
     "${zenity_args[@]}" \
-    --width=650 --height=450 2>/dev/null)
+    --width=550 --height=350 2>/dev/null)
 
-  [[ -z "${selected}" ]] && exit 0
-  IFS=$'\x1f' read -r -a slugs_to_isolate <<< "${selected}"
+  [[ -z "${selected_label}" ]] && exit 0
+
+  for s_code in "${sorted_stores[@]}"; do
+    if [[ "$(zgu_store_display_name "${s_code}")" = "${selected_label}" ]]; then
+      target_store="${s_code}"
+      break
+    fi
+  done
 fi
+
+if [[ -z "${target_store}" ]] || [[ -z "${store_slugs[${target_store}]:-}" ]]; then
+  t isolate.none_found >&2
+  exit 0
+fi
+
+slugs_to_isolate=(${store_slugs[${target_store}]})
 
 # ---------------------------------------------------------------------------------------------
 # --- Confirmation ---
-if [[ -n "${cli_slug}" ]]; then
-  t isolate.confirm_cli_header
+if [[ "${will_use_zenity}" = false ]]; then
+  t isolate.confirm_cli_store "$(zgu_store_display_name "${target_store}")" "${#slugs_to_isolate[@]}"
   for s in "${slugs_to_isolate[@]}"; do
     t isolate.confirm_cli_item "${bl_name_by_slug[${s}]}" "${s}"
   done
