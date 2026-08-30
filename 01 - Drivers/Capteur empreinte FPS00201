@@ -1,0 +1,51 @@
+Voir s'il est reconnu
+
+```bash
+lsusb | grep -i elan
+```
+
+C'est
+Bus 005 Device 006: ID 3274:8012 MicroarrayTechnology MAFP General Device
+
+USB Fingerprint Reader(UA002)
+
+
+On Installe les dépendances
+
+```bash
+sudo nala install -y meson ninja-build build-essential git pkg-config libglib2.0-dev libgusb-dev libnss3-dev libpam-dev libudev-dev libusb-1.0-0-dev libgudev-1.0-dev libpixman-1-dev libcairo2-dev libssl-dev gtk-doc-tools fprintd
+```
+
+
+On peut l'installer avec
+
+```bash
+sudo apt purge -y --auto-remove libfprint-2-2
+cd
+git clone https://gitlab.freedesktop.org/libfprint/libfprint.git
+cd libfprint
+meson setup builddir
+ninja -C builddir
+sudo ninja -C builddir install
+sudo ldconfig
+```
+
+On vérifie que le capteur est vu
+
+```bash
+fprintd-list $(whoami)
+```
+
+On tente de reinstaller le truc de gui
+
+```bash
+sudo nala install -y libpam-fprintd fingwit
+```
+
+Et on bloque les futur màj pour pas que ça écrase nos réglages
+
+
+```bash
+sudo apt-mark hold libfprint-2-2
+```
+
