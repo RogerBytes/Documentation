@@ -438,6 +438,12 @@ except Exception:
       ln -sf "." "${prefix_dir}/pfx"
     fi
 
+    # "Local Settings" (jonction/dossier hérité de Windows XP, sous le profil steamuser) : même
+    # nettoyage idempotent qu'à l'empaquetage (zgp-game-packer.sh), nécessaire ici aussi pour
+    # les .zgp déjà empaquetés avant ce correctif -- ne fait rien s'il est déjà absent.
+    local_settings_dir="${prefix_dir}/drive_c/users/steamuser/Local Settings"
+    [[ -e "${local_settings_dir}" || -L "${local_settings_dir}" ]] && rm -rf -- "${local_settings_dir}"
+
     t install_game.registering_lutris
     safe_name="${game_real_name//\'/\'\'}"
     # slug et config_id dérivent du nom du dossier extrait de l'archive .zgp (voir plus haut :

@@ -336,6 +336,13 @@ for game_real_name in "${games_to_export[@]}"; do
     [[ -L "${WINEPREFIX_DIR}/drive_c/users/steamuser/${link_name}" ]] && unlink "${WINEPREFIX_DIR}/drive_c/users/steamuser/${link_name}"
   done
 
+  # "Local Settings" (jonction/dossier hérité de Windows XP, sous le profil steamuser) : Wine
+  # peut le recréer entre deux empaquetages. Suppression idempotente -- ne fait rien s'il est
+  # déjà absent. Même nettoyage repris à l'installation (zgp-game-installer.sh), nécessaire
+  # là-bas aussi pour les .zgp déjà empaquetés avant ce correctif.
+  local_settings_dir="${WINEPREFIX_DIR}/drive_c/users/steamuser/Local Settings"
+  [[ -e "${local_settings_dir}" || -L "${local_settings_dir}" ]] && rm -rf -- "${local_settings_dir}"
+
   [[ -d "${WINEPREFIX_DIR}/drive_c/ProgramData/Package Cache/" ]] && rm -rf -- "${WINEPREFIX_DIR}/drive_c/ProgramData/Package Cache/"*
   [[ -d "${WINEPREFIX_DIR}/drive_c/users/steamuser/Temp" ]] && rm -rf -- "${WINEPREFIX_DIR}/drive_c/users/steamuser/Temp/"*
   [[ -d "${WINEPREFIX_DIR}/drive_c" ]] && mkdir -p "${WINEPREFIX_DIR}/drive_c/users/steamuser/Temp"
